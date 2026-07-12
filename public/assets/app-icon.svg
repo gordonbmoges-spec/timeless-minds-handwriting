@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="墨影笔记">
+  <rect width="512" height="512" rx="112" fill="#303b37"/>
+  <rect x="86" y="70" width="340" height="372" rx="34" fill="#fffdf7"/>
+  <path d="M118 146h276M118 206h276M118 266h276M118 326h186" fill="none" stroke="#e0d5bf" stroke-width="10" stroke-linecap="round"/>
+  <path d="M158 342c40-74 79-114 117-120 25-4 38 7 35 27-4 30-44 59-74 54-24-4-30-24-13-42 25-27 86-18 132 17" fill="none" stroke="#9f3b2f" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M339 123l41 41-111 111-52 11 11-52 111-111z" fill="#5e725a"/>
+  <path d="M352 110l41 41" fill="none" stroke="#fffdf7" stroke-width="17" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#303b37" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="墨影笔记" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="墨影笔记" />
+    <meta name="description" content="墨影笔记 iPad 本地演示 APP" />
+    <title>墨影笔记</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/app-icon-180.png" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="studio" aria-label="墨影笔记书写区">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Ink Diary Web MVP</p>
+            <h1>墨影笔记</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="settings-btn" id="openApiSettings" type="button">
+              API 设置
+            </button>
+            <div class="status-pill" id="statusPill" aria-live="polite">
+              等待书写
+            </div>
+          </div>
+        </header>
+
+        <section class="paper-stage">
+          <canvas id="paperCanvas" aria-label="手写纸面"></canvas>
+          <div class="paper-watermark">write here</div>
+          <div class="thinking-panel" id="thinkingPanel" hidden>
+            <span></span>
+            <strong>纸页正在回信</strong>
+          </div>
+        </section>
+
+        <footer class="tool-row" aria-label="书写工具">
+          <button class="tool-btn active" id="penTool" type="button" aria-label="使用笔" title="笔">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4.2-1 10.6-10.6-3.2-3.2L5 15.8 4 20z"/><path d="M14.8 4l1.3-1.3a1.8 1.8 0 0 1 2.6 0l2.6 2.6a1.8 1.8 0 0 1 0 2.6L20 9.2"/></svg>
+          </button>
+          <button class="tool-btn" id="eraserTool" type="button" aria-label="使用橡皮" title="橡皮">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 14.5 13.9 4.1a2.2 2.2 0 0 1 3.1 0l3 3a2.2 2.2 0 0 1 0 3.1L10.2 20H5.5l-2-2a2.5 2.5 0 0 1 0-3.5z"/><path d="M12.5 6.5 17.5 11.5"/><path d="M10.2 20H21"/></svg>
+          </button>
+          <button class="tool-btn" id="sendNow" type="button" aria-label="立即发送" title="立即发送">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9 22 2z"/></svg>
+          </button>
+          <button class="tool-btn" id="clearPage" type="button" aria-label="清空纸面" title="清空">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6.5 6 8 21h8l1.5-15"/><path d="M10 10v7"/><path d="M14 10v7"/></svg>
+          </button>
+        </footer>
+      </section>
+
+      <aside class="side-panel" aria-label="状态面板">
+        <section class="panel-section">
+          <p class="section-label">字迹采样</p>
+          <dl class="metrics">
+            <div><dt>笔画粗细</dt><dd id="metricWidth">3.0</dd></div>
+            <div><dt>倾斜</dt><dd id="metricSlant">0</dd></div>
+            <div><dt>字形大小</dt><dd id="metricSize">42</dd></div>
+            <div><dt>书写节奏</dt><dd id="metricPace">1.0</dd></div>
+          </dl>
+        </section>
+
+        <section class="panel-section">
+          <p class="section-label">最近回信</p>
+          <ol class="turn-list" id="turnList">
+            <li class="empty-note">写一句话，停笔后纸页会自动回应。</li>
+          </ol>
+        </section>
+
+        <section class="panel-section compact">
+          <p class="section-label">连接状态</p>
+          <p class="muted" id="modeCopy">
+            未配置 API Key 时会使用演示回复；接入后端 Key 后会识别真实手写内容。
+          </p>
+        </section>
+      </aside>
+    </main>
+
+    <dialog class="settings-dialog" id="apiSettingsDialog" aria-labelledby="apiSettingsTitle">
+      <form class="settings-form" id="apiSettingsForm">
+        <header class="dialog-header">
+          <div>
+            <p class="eyebrow">AI Connection</p>
+            <h2 id="apiSettingsTitle">配置视觉模型</h2>
+          </div>
+          <button class="dialog-close" id="closeApiSettings" type="button" aria-label="关闭设置" title="关闭">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </header>
+
+        <div class="form-field">
+          <label for="apiProvider">API 平台</label>
+          <select id="apiProvider" name="provider">
+            <option value="aliyun">阿里云百炼（推荐）</option>
+            <option value="doubao">火山方舟 / 豆包</option>
+            <option value="custom">其他 OpenAI 兼容接口</option>
+          </select>
+        </div>
+
+        <div class="form-field">
+          <label for="apiKey">API Key</label>
+          <div class="secret-input">
+            <input id="apiKey" name="apiKey" type="password" autocomplete="off" placeholder="请输入 API Key" required />
+            <button id="toggleApiKey" type="button" aria-label="显示 API Key">显示</button>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label for="apiBaseUrl">接口地址</label>
+          <input id="apiBaseUrl" name="baseUrl" type="url" inputmode="url" required />
+        </div>
+
+        <div class="form-field">
+          <label for="apiModel">视觉模型</label>
+          <input id="apiModel" name="model" type="text" required />
+          <p class="field-hint" id="modelHint">推荐使用 qwen3-vl-plus，需支持图片输入。</p>
+        </div>
+
+        <p class="settings-notice">配置只保存在当前浏览器，并通过本站后端发送给模型服务商。正式上线时请使用 HTTPS。</p>
+        <p class="form-message" id="apiFormMessage" aria-live="polite"></p>
+
+        <footer class="dialog-actions">
+          <button class="secondary-btn" id="clearApiSettings" type="button">清除配置</button>
+          <button class="primary-btn" type="submit">保存并启用</button>
+        </footer>
+      </form>
+    </dialog>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
