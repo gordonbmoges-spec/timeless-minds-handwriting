@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 import { createInkDiaryServer } from "../server.js";
+import { PERSONAS } from "../public/data/personas.js";
 
 let server;
 let baseUrl;
@@ -23,10 +24,12 @@ test("serves the application shell", async () => {
   assert.match(await response.text(), /思想档案馆/);
 });
 
-test("serves the application shell for a direct persona route", async () => {
-  const response = await fetch(`${baseUrl}/persona/confucius`);
-  assert.equal(response.status, 200);
-  assert.match(await response.text(), /思想档案馆/);
+test("serves the application shell for every direct persona route", async () => {
+  for (const persona of PERSONAS) {
+    const response = await fetch(`${baseUrl}/persona/${persona.id}`);
+    assert.equal(response.status, 200, persona.id);
+    assert.match(await response.text(), /思想档案馆/);
+  }
 });
 
 test("rejects malformed JSON", async () => {

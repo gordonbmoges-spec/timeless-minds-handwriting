@@ -202,8 +202,8 @@ function showScene(persona, assets) {
   elements.personaIndex.textContent = `ARCHIVE ${String(PERSONAS.indexOf(persona) + 1).padStart(2, "0")}`;
   elements.mobilePersonaName.textContent = persona.name;
   elements.mobilePersonaField.textContent = `${persona.field} · ${persona.years}`;
-  elements.sceneLocation.textContent = persona.id === "confucius" ? "LU · PRIVATE STUDY" : persona.latinName;
-  elements.sceneTitle.textContent = persona.id === "confucius" ? "竹简问答" : persona.medium;
+  elements.sceneLocation.textContent = assets.sceneLocation || persona.latinName;
+  elements.sceneTitle.textContent = assets.sceneTitle || persona.medium;
   elements.paperImage.hidden = false;
   elements.paperObject.style.background = "";
   elements.paperObject.style.border = "";
@@ -330,7 +330,7 @@ async function commitPage() {
       direction: state.assets.writingDirection,
       color: state.assets.replyInk,
       fontFamily: '"STKaiti", "KaiTi", "Songti SC", serif',
-      fontSize: state.persona.id === "confucius" ? 34 : 38,
+      fontSize: state.assets.replyFontSize || 36,
       pace: data.style?.pace || 1
     });
     setStatus("等待书写");

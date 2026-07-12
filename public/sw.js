@@ -1,4 +1,4 @@
-const CACHE_NAME = "minds-archive-local-app-v3";
+const CACHE_NAME = "minds-archive-local-app-v4";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -17,7 +17,22 @@ const APP_SHELL = [
   "/assets/personas/manifest.js",
   "/assets/personas/confucius/background.webp",
   "/assets/personas/confucius/paper.png",
-  "/assets/personas/confucius/portrait.webp"
+  "/assets/personas/confucius/portrait.webp",
+  "/assets/personas/socrates/background.webp",
+  "/assets/personas/socrates/paper.png",
+  "/assets/personas/socrates/portrait.webp",
+  "/assets/personas/da-vinci/background.webp",
+  "/assets/personas/da-vinci/paper.png",
+  "/assets/personas/da-vinci/portrait.webp",
+  "/assets/personas/shakespeare/background.webp",
+  "/assets/personas/shakespeare/paper.png",
+  "/assets/personas/shakespeare/portrait.webp",
+  "/assets/personas/jung/background.webp",
+  "/assets/personas/jung/paper.png",
+  "/assets/personas/jung/portrait.webp",
+  "/assets/personas/einstein/background.webp",
+  "/assets/personas/einstein/paper.png",
+  "/assets/personas/einstein/portrait.webp"
 ];
 
 self.addEventListener("install", (event) => {
