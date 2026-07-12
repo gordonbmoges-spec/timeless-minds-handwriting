@@ -20,7 +20,13 @@ after(async () => {
 test("serves the application shell", async () => {
   const response = await fetch(`${baseUrl}/`);
   assert.equal(response.status, 200);
-  assert.match(await response.text(), /墨影笔记/);
+  assert.match(await response.text(), /思想档案馆/);
+});
+
+test("serves the application shell for a direct persona route", async () => {
+  const response = await fetch(`${baseUrl}/persona/confucius`);
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /思想档案馆/);
 });
 
 test("rejects malformed JSON", async () => {

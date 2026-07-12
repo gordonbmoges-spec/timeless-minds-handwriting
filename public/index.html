@@ -3,101 +3,120 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#303b37" />
+    <meta name="theme-color" content="#0b0e0c" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="墨影笔记" />
+    <meta name="apple-mobile-web-app-title" content="思想档案馆" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="application-name" content="墨影笔记" />
-    <meta name="description" content="墨影笔记 iPad 本地演示 APP" />
-    <title>墨影笔记</title>
+    <meta name="application-name" content="思想档案馆" />
+    <meta name="description" content="与跨时代思想者手写对话" />
+    <title>思想档案馆</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/assets/app-icon-180.png" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="app-shell">
-      <section class="studio" aria-label="墨影笔记书写区">
-        <header class="topbar">
+    <div class="app-root">
+      <section class="archive-view" id="archiveView" aria-labelledby="archiveTitle">
+        <header class="archive-header">
+          <div class="archive-mark" aria-hidden="true">M/06</div>
           <div>
-            <p class="eyebrow">Ink Diary Web MVP</p>
-            <h1>墨影笔记</h1>
+            <p class="eyebrow">Archive of Human Thought · Collection 01</p>
+            <h1 id="archiveTitle">思想档案馆</h1>
+            <p class="archive-intro">选择一位思想者，在属于其时代的纸面上写下问题。</p>
           </div>
-          <div class="topbar-actions">
-            <button class="settings-btn" id="openApiSettings" type="button">
-              API 设置
-            </button>
-            <div class="status-pill" id="statusPill" aria-live="polite">
-              等待书写
-            </div>
-          </div>
+          <button class="text-button" id="archiveApiSettings" type="button">API 设置</button>
         </header>
 
-        <section class="paper-stage">
-          <canvas id="paperCanvas" aria-label="手写纸面"></canvas>
-          <div class="paper-watermark">write here</div>
-          <div class="thinking-panel" id="thinkingPanel" hidden>
-            <span></span>
-            <strong>纸页正在回信</strong>
-          </div>
-        </section>
+        <div class="archive-rule" aria-hidden="true"><span>PERSONA INDEX</span><span>6 RECORDS</span></div>
+        <div class="persona-list" id="personaList" aria-live="polite"></div>
 
-        <footer class="tool-row" aria-label="书写工具">
-          <button class="tool-btn active" id="penTool" type="button" aria-label="使用笔" title="笔">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4.2-1 10.6-10.6-3.2-3.2L5 15.8 4 20z"/><path d="M14.8 4l1.3-1.3a1.8 1.8 0 0 1 2.6 0l2.6 2.6a1.8 1.8 0 0 1 0 2.6L20 9.2"/></svg>
-          </button>
-          <button class="tool-btn" id="eraserTool" type="button" aria-label="使用橡皮" title="橡皮">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 14.5 13.9 4.1a2.2 2.2 0 0 1 3.1 0l3 3a2.2 2.2 0 0 1 0 3.1L10.2 20H5.5l-2-2a2.5 2.5 0 0 1 0-3.5z"/><path d="M12.5 6.5 17.5 11.5"/><path d="M10.2 20H21"/></svg>
-          </button>
-          <button class="tool-btn" id="sendNow" type="button" aria-label="立即发送" title="立即发送">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9 22 2z"/></svg>
-          </button>
-          <button class="tool-btn" id="clearPage" type="button" aria-label="清空纸面" title="清空">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6.5 6 8 21h8l1.5-15"/><path d="M10 10v7"/><path d="M14 10v7"/></svg>
-          </button>
+        <footer class="archive-footer">
+          <span>所有回答均为 AI 思想演绎，并非真实历史发言。</span>
+          <span>WEB MVP · 2026</span>
         </footer>
       </section>
 
-      <aside class="side-panel" aria-label="状态面板">
-        <section class="panel-section">
-          <p class="section-label">字迹采样</p>
-          <dl class="metrics">
-            <div><dt>笔画粗细</dt><dd id="metricWidth">3.0</dd></div>
-            <div><dt>倾斜</dt><dd id="metricSlant">0</dd></div>
-            <div><dt>字形大小</dt><dd id="metricSize">42</dd></div>
-            <div><dt>书写节奏</dt><dd id="metricPace">1.0</dd></div>
-          </dl>
-        </section>
+      <section class="scene-view" id="sceneView" hidden aria-label="人物手写场景">
+        <div class="scene-backdrop" id="sceneBackdrop" aria-hidden="true"></div>
+        <header class="scene-mobile-header">
+          <button class="icon-text-button" id="mobileBack" type="button" aria-label="返回人物档案墙">←</button>
+          <div><strong id="mobilePersonaName"></strong><span id="mobilePersonaField"></span></div>
+          <button class="icon-text-button" id="mobileSettings" type="button">API</button>
+        </header>
 
-        <section class="panel-section">
-          <p class="section-label">最近回信</p>
-          <ol class="turn-list" id="turnList">
-            <li class="empty-note">写一句话，停笔后纸页会自动回应。</li>
-          </ol>
-        </section>
+        <div class="scene-layout">
+          <aside class="persona-rail" aria-label="人物档案">
+            <button class="back-button" id="backToArchive" type="button">← 返回档案墙</button>
+            <p class="rail-index" id="personaIndex">ARCHIVE 01</p>
+            <img class="persona-portrait" id="personaPortrait" alt="" />
+            <p class="persona-latin" id="personaLatin"></p>
+            <h2 id="personaName"></h2>
+            <p class="persona-years" id="personaYears"></p>
+            <p class="persona-field" id="personaField"></p>
+            <div class="rail-divider"></div>
+            <p class="persona-medium" id="personaMedium"></p>
+          </aside>
 
-        <section class="panel-section compact">
-          <p class="section-label">连接状态</p>
-          <p class="muted" id="modeCopy">
-            未配置 API Key 时会使用演示回复；接入后端 Key 后会识别真实手写内容。
-          </p>
-        </section>
-      </aside>
-    </main>
+          <main class="writing-column">
+            <div class="writing-heading">
+              <div>
+                <p class="eyebrow" id="sceneLocation">LU · PRIVATE STUDY</p>
+                <h2 id="sceneTitle">竹简问答</h2>
+              </div>
+              <div class="status-readout" id="statusReadout" aria-live="polite">
+                <span></span><strong>等待书写</strong>
+              </div>
+            </div>
+
+            <div class="paper-object" id="paperObject">
+              <img class="paper-image" id="paperImage" alt="空白竹简书写纸面" />
+              <div class="writing-surface" id="writingSurface">
+                <canvas id="inkCanvas" aria-label="手写输入区域"></canvas>
+                <canvas id="replyCanvas" aria-hidden="true"></canvas>
+              </div>
+              <div class="loading-note" id="loadingNote" hidden>
+                <span></span><strong>档案正在回信</strong>
+              </div>
+            </div>
+
+            <nav class="tool-dock" aria-label="书写工具">
+              <button class="tool-button active" id="penTool" type="button" aria-label="使用笔" title="笔">笔</button>
+              <button class="tool-button" id="eraserTool" type="button" aria-label="使用橡皮" title="橡皮">擦</button>
+              <button class="tool-button" id="sendNow" type="button" aria-label="立即发送" title="立即发送">发</button>
+              <button class="tool-button" id="clearPage" type="button" aria-label="清空纸面" title="清空">清</button>
+            </nav>
+          </main>
+
+          <aside class="context-rail" aria-label="思想与连接状态">
+            <div class="context-block">
+              <p class="section-label">思想坐标</p>
+              <ol class="keyword-list" id="keywordList"></ol>
+            </div>
+            <div class="context-block metrics-block">
+              <p class="section-label">笔迹采样</p>
+              <dl class="metrics">
+                <div><dt>笔画</dt><dd id="metricWidth">3.0</dd></div>
+                <div><dt>输入</dt><dd id="metricInput">等待</dd></div>
+              </dl>
+            </div>
+            <div class="context-block connection-block">
+              <p class="section-label">连接状态</p>
+              <p id="modeCopy">未配置 API 时使用人物演示回复。</p>
+              <button class="text-button full-width" id="openApiSettings" type="button">配置 API</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
 
     <dialog class="settings-dialog" id="apiSettingsDialog" aria-labelledby="apiSettingsTitle">
       <form class="settings-form" id="apiSettingsForm">
         <header class="dialog-header">
-          <div>
-            <p class="eyebrow">AI Connection</p>
-            <h2 id="apiSettingsTitle">配置视觉模型</h2>
-          </div>
-          <button class="dialog-close" id="closeApiSettings" type="button" aria-label="关闭设置" title="关闭">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-          </button>
+          <div><p class="eyebrow">AI Connection</p><h2 id="apiSettingsTitle">配置视觉模型</h2></div>
+          <button class="dialog-close" id="closeApiSettings" type="button" aria-label="关闭设置">×</button>
         </header>
-
         <div class="form-field">
           <label for="apiProvider">API 平台</label>
           <select id="apiProvider" name="provider">
@@ -106,7 +125,6 @@
             <option value="custom">其他 OpenAI 兼容接口</option>
           </select>
         </div>
-
         <div class="form-field">
           <label for="apiKey">API Key</label>
           <div class="secret-input">
@@ -114,27 +132,20 @@
             <button id="toggleApiKey" type="button" aria-label="显示 API Key">显示</button>
           </div>
         </div>
-
+        <div class="form-field"><label for="apiBaseUrl">接口地址</label><input id="apiBaseUrl" name="baseUrl" type="url" required /></div>
         <div class="form-field">
-          <label for="apiBaseUrl">接口地址</label>
-          <input id="apiBaseUrl" name="baseUrl" type="url" inputmode="url" required />
+          <label for="apiModel">视觉模型</label><input id="apiModel" name="model" type="text" required />
+          <p class="field-hint" id="modelHint">推荐使用支持图片输入的视觉模型。</p>
         </div>
-
-        <div class="form-field">
-          <label for="apiModel">视觉模型</label>
-          <input id="apiModel" name="model" type="text" required />
-          <p class="field-hint" id="modelHint">推荐使用 qwen3-vl-plus，需支持图片输入。</p>
-        </div>
-
-        <p class="settings-notice">配置只保存在当前浏览器，并通过本站后端发送给模型服务商。正式上线时请使用 HTTPS。</p>
+        <p class="settings-notice">配置只保存在当前浏览器。正式上线必须使用 HTTPS。</p>
         <p class="form-message" id="apiFormMessage" aria-live="polite"></p>
-
         <footer class="dialog-actions">
-          <button class="secondary-btn" id="clearApiSettings" type="button">清除配置</button>
-          <button class="primary-btn" type="submit">保存并启用</button>
+          <button class="secondary-button" id="clearApiSettings" type="button">清除配置</button>
+          <button class="primary-button" type="submit">保存并启用</button>
         </footer>
       </form>
     </dialog>
+
     <script src="/app.js" type="module"></script>
   </body>
 </html>

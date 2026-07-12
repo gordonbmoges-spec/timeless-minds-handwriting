@@ -1,15 +1,22 @@
-const CACHE_NAME = "ink-diary-local-app-v1";
+const CACHE_NAME = "minds-archive-local-app-v2";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/styles.css",
   "/app.js",
+  "/data/personas.js",
+  "/modules/ai-client.js",
+  "/modules/ink-engine.js",
+  "/modules/reply-presenter.js",
+  "/modules/router.js",
   "/manifest.webmanifest",
   "/assets/app-icon.svg",
   "/assets/app-icon-180.png",
   "/assets/app-icon-512.png",
-  "/assets/paper-grain.svg",
-  "/assets/fonts/DancingScript.ttf"
+  "/assets/personas/manifest.js",
+  "/assets/personas/confucius/background.webp",
+  "/assets/personas/confucius/paper.png",
+  "/assets/personas/confucius/portrait.webp"
 ];
 
 self.addEventListener("install", (event) => {
@@ -18,9 +25,12 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(
-      keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-    ))
+    Promise.all([
+      caches.keys().then((keys) => Promise.all(
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+      )),
+      self.clients.claim()
+    ])
   );
 });
 

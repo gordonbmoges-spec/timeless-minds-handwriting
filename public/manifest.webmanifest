@@ -1,13 +1,13 @@
 {
-  "name": "墨影笔记",
-  "short_name": "墨影笔记",
-  "description": "墨影笔记 iPad 本地演示 APP",
+  "name": "思想档案馆",
+  "short_name": "思想档案",
+  "description": "与跨时代思想者手写对话",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#fffdf7",
-  "theme_color": "#303b37",
+  "background_color": "#090b0a",
+  "theme_color": "#0b0e0c",
   "icons": [
     {
       "src": "/assets/app-icon.svg",

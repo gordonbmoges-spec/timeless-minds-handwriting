@@ -188,6 +188,20 @@ async function serveStatic(pathname, res, headOnly, publicDir) {
     if (!headOnly) res.end(file);
     else res.end();
   } catch {
+    if (!path.extname(cleanPath)) {
+      try {
+        const shell = await readFile(path.join(publicDir, "index.html"));
+        res.writeHead(200, {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-store"
+        });
+        if (!headOnly) res.end(shell);
+        else res.end();
+        return;
+      } catch {
+        // Fall through to the normal not-found response.
+      }
+    }
     sendText(res, 404, "Not found");
   }
 }
