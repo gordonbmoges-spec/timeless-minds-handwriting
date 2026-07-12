@@ -188,6 +188,7 @@ async function commitPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         imageDataUrl,
+        personaId: "confucius",
         style: state.style,
         history: state.turns.slice(-6),
         apiConfig: readApiSettings()
