@@ -43,7 +43,11 @@
         <header class="scene-mobile-header">
           <button class="icon-text-button" id="mobileBack" type="button" aria-label="返回人物档案墙">←</button>
           <div><strong id="mobilePersonaName"></strong><span id="mobilePersonaField"></span></div>
-          <button class="icon-text-button" id="mobileSettings" type="button">API</button>
+          <nav class="mobile-actions" aria-label="人物设置">
+            <button class="icon-text-button" id="mobileHistory" type="button" aria-label="查看历史档案">史</button>
+            <button class="icon-text-button" id="mobileReplySettings" type="button" aria-label="调整回复方式">调</button>
+            <button class="icon-text-button" id="mobileSettings" type="button" aria-label="配置 API">API</button>
+          </nav>
         </header>
 
         <div class="scene-layout">
@@ -101,6 +105,11 @@
                 <div><dt>输入</dt><dd id="metricInput">等待</dd></div>
               </dl>
             </div>
+            <div class="context-block archive-actions">
+              <p class="section-label">对话档案</p>
+              <button class="text-button full-width" id="openHistory" type="button">历史档案 · 0</button>
+              <button class="text-button full-width" id="openReplySettings" type="button">调整回复方式</button>
+            </div>
             <div class="context-block connection-block">
               <p class="section-label">连接状态</p>
               <p id="modeCopy">未配置 API 时使用人物演示回复。</p>
@@ -144,6 +153,39 @@
           <button class="primary-button" type="submit">保存并启用</button>
         </footer>
       </form>
+    </dialog>
+
+    <dialog class="settings-dialog" id="replySettingsDialog" aria-labelledby="replySettingsTitle">
+      <form class="settings-form" id="replySettingsForm">
+        <header class="dialog-header">
+          <div><p class="eyebrow">Reply Preference</p><h2 id="replySettingsTitle">调整回复方式</h2></div>
+          <button class="dialog-close" id="closeReplySettings" type="button" aria-label="关闭回复设置">×</button>
+        </header>
+        <div class="form-field">
+          <label for="personaInstruction">你希望他怎样回答</label>
+          <textarea id="personaInstruction" name="personaInstruction" maxlength="300" rows="5" placeholder="例如：先直接回答，少引用经典，用更生活化的语言。"></textarea>
+          <p class="field-hint">只调整当前人物的表达偏好；人物身份、史实边界和禁止编造规则不会改变。</p>
+        </div>
+        <p class="form-message" id="replyFormMessage" aria-live="polite"></p>
+        <footer class="dialog-actions">
+          <button class="secondary-button" id="clearReplySettings" type="button">恢复默认</button>
+          <button class="primary-button" type="submit">保存设置</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="settings-dialog history-dialog" id="historyDialog" aria-labelledby="historyTitle">
+      <section class="settings-form">
+        <header class="dialog-header">
+          <div><p class="eyebrow">Conversation Archive</p><h2 id="historyTitle">历史档案</h2></div>
+          <button class="dialog-close" id="closeHistory" type="button" aria-label="关闭历史档案">×</button>
+        </header>
+        <div class="history-list" id="historyList"></div>
+        <footer class="dialog-actions">
+          <p class="field-hint">只保存在当前浏览器，最多 20 条。</p>
+          <button class="secondary-button" id="clearHistory" type="button">清空当前人物</button>
+        </footer>
+      </section>
     </dialog>
 
     <script src="/app.js" type="module"></script>

@@ -1,4 +1,4 @@
-const CACHE_NAME = "minds-archive-local-app-v2";
+const CACHE_NAME = "minds-archive-local-app-v3";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -7,6 +7,7 @@ const APP_SHELL = [
   "/data/personas.js",
   "/modules/ai-client.js",
   "/modules/ink-engine.js",
+  "/modules/history-store.js",
   "/modules/reply-presenter.js",
   "/modules/router.js",
   "/manifest.webmanifest",

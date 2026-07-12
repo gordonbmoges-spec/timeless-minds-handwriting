@@ -75,6 +75,35 @@ test("selects the server-side persona prompt for an AI request", async () => {
   });
 });
 
+test("adds a bounded reply preference without replacing server rules", async () => {
+  let upstreamBody;
+  const fetchImpl = async (_url, init) => {
+    upstreamBody = JSON.parse(init.body);
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({ transcript: "你是谁？", reply: "我是孔丘，鲁国人，愿与你谈修身、学习和人与人相处之道。" }) } }]
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  await withServer({ env: { AI_API_KEY: "test-key" }, fetchImpl }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageDataUrl,
+        personaId: "confucius",
+        personaInstruction: `  先直接回答。\n${"不要引用经典。".repeat(80)}`
+      })
+    });
+    assert.equal(response.status, 200);
+    const systemPrompt = upstreamBody.messages.find((message) => message.role === "system").content;
+    assert.match(systemPrompt, /孔子/);
+    assert.match(systemPrompt, /不得编造/);
+    assert.match(systemPrompt, /用户的回复偏好/);
+    assert.match(systemPrompt, /先直接回答/);
+    assert.ok(systemPrompt.length < 1_400);
+  });
+});
+
 test("asks for another sample when handwriting cannot be read", async () => {
   const fetchImpl = async () => new Response(JSON.stringify({
     choices: [{ message: { content: JSON.stringify({ transcript: "", reply: "" }) } }]

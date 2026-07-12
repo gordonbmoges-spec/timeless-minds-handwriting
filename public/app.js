@@ -1,13 +1,16 @@
 import { PERSONAS, findPersona } from "/data/personas.js";
 import { PERSONA_ASSETS, getPersonaAssets } from "/assets/personas/manifest.js";
 import { requestPersonaReply } from "/modules/ai-client.js";
+import { createHistoryStore } from "/modules/history-store.js";
 import { InkEngine } from "/modules/ink-engine.js";
 import { ReplyPresenter } from "/modules/reply-presenter.js";
 import { navigateTo, personaPath, routeFromPath } from "/modules/router.js";
 
 const API_SETTINGS_KEY = "ink-diary-api-settings-v1";
+const REPLY_PREFERENCE_PREFIX = "minds-archive-reply-preference-v1-";
 const IDLE_SEND_MS = 1_800;
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const historyStore = createHistoryStore();
 
 const providerDefaults = {
   aliyun: {
@@ -29,15 +32,17 @@ const providerDefaults = {
 
 const elements = Object.fromEntries([
   "archiveView", "sceneView", "personaList", "archiveApiSettings", "sceneBackdrop",
-  "mobileBack", "mobileSettings", "mobilePersonaName", "mobilePersonaField",
+  "mobileBack", "mobileSettings", "mobileHistory", "mobileReplySettings", "mobilePersonaName", "mobilePersonaField",
   "backToArchive", "personaIndex", "personaPortrait", "personaLatin", "personaName",
   "personaYears", "personaField", "personaMedium", "sceneLocation", "sceneTitle",
   "statusReadout", "paperObject", "paperImage", "writingSurface", "inkCanvas",
   "replyCanvas", "loadingNote", "penTool", "eraserTool", "sendNow", "clearPage",
-  "keywordList", "metricWidth", "metricInput", "modeCopy", "openApiSettings",
+  "keywordList", "metricWidth", "metricInput", "modeCopy", "openApiSettings", "openHistory", "openReplySettings",
   "apiSettingsDialog", "apiSettingsForm", "closeApiSettings", "clearApiSettings",
   "toggleApiKey", "apiProvider", "apiKey", "apiBaseUrl", "apiModel", "modelHint",
-  "apiFormMessage"
+  "apiFormMessage", "replySettingsDialog", "replySettingsForm", "closeReplySettings",
+  "clearReplySettings", "personaInstruction", "replyFormMessage", "historyDialog",
+  "closeHistory", "clearHistory", "historyList", "historyTitle"
 ].map((id) => [id, document.getElementById(id)]));
 
 const state = {
@@ -127,6 +132,12 @@ function bindGlobalEvents() {
   for (const button of [elements.archiveApiSettings, elements.openApiSettings, elements.mobileSettings]) {
     button.addEventListener("click", showApiSettings);
   }
+  for (const button of [elements.openHistory, elements.mobileHistory]) {
+    button.addEventListener("click", showHistory);
+  }
+  for (const button of [elements.openReplySettings, elements.mobileReplySettings]) {
+    button.addEventListener("click", showReplySettings);
+  }
   elements.closeApiSettings.addEventListener("click", () => elements.apiSettingsDialog.close());
   elements.clearApiSettings.addEventListener("click", clearSavedApiSettings);
   elements.toggleApiKey.addEventListener("click", toggleKeyVisibility);
@@ -134,6 +145,17 @@ function bindGlobalEvents() {
   elements.apiSettingsForm.addEventListener("submit", saveApiSettings);
   elements.apiSettingsDialog.addEventListener("click", (event) => {
     if (event.target === elements.apiSettingsDialog) elements.apiSettingsDialog.close();
+  });
+  elements.closeReplySettings.addEventListener("click", () => elements.replySettingsDialog.close());
+  elements.clearReplySettings.addEventListener("click", clearSavedReplyPreference);
+  elements.replySettingsForm.addEventListener("submit", saveReplyPreference);
+  elements.replySettingsDialog.addEventListener("click", (event) => {
+    if (event.target === elements.replySettingsDialog) elements.replySettingsDialog.close();
+  });
+  elements.closeHistory.addEventListener("click", () => elements.historyDialog.close());
+  elements.clearHistory.addEventListener("click", clearPersonaHistory);
+  elements.historyDialog.addEventListener("click", (event) => {
+    if (event.target === elements.historyDialog) elements.historyDialog.close();
   });
 }
 
@@ -163,7 +185,7 @@ function showScene(persona, assets) {
   teardownScene();
   state.persona = persona;
   state.assets = assets;
-  state.history = [];
+  state.history = historyStore.load(persona.id);
   elements.archiveView.hidden = true;
   elements.sceneView.hidden = false;
   document.title = `${persona.name} · 思想档案馆`;
@@ -199,6 +221,7 @@ function showScene(persona, assets) {
     li.append(number, document.createTextNode(keyword));
     return li;
   }));
+  updateHistoryCount();
 
   elements.paperImage.addEventListener("error", showPaperFallback, { once: true });
   requestAnimationFrame(setupSceneEngines);
@@ -286,13 +309,21 @@ async function commitPage() {
       imageDataUrl,
       personaId: state.persona.id,
       style: state.ink.sampleStyle(),
-      history: state.history.slice(-6),
+      history: state.history.slice(0, 6).reverse(),
+      personaInstruction: readReplyPreference(state.persona.id),
       apiConfig: readApiSettings()
     });
     await fadeAndClearInk();
-    state.history.push({ transcript: data.transcript || "", reply: data.reply || "" });
+    if (data.mode === "ai" && data.status === "ok" && data.transcript && data.reply) {
+      state.history = historyStore.append(state.persona.id, {
+        transcript: data.transcript,
+        reply: data.reply,
+        at: new Date().toISOString()
+      });
+      updateHistoryCount();
+    }
     elements.modeCopy.textContent = data.mode === "demo"
-      ? `演示模式 · ${state.persona.name}人物内核已启用，尚未识别真实手写。`
+      ? `演示模式 · ${state.persona.name}人物内核已启用；演示句不会存入历史档案。`
       : `AI 模式 · ${state.persona.name}已读取纸面并回应。`;
     setStatus(data.status === "needs_clarification" ? "请再写一次" : "正在回信", "busy");
     await state.reply.show(data.reply || "", {
@@ -434,6 +465,107 @@ function toggleKeyVisibility() {
 function showApiFormMessage(message, type) {
   elements.apiFormMessage.textContent = message;
   elements.apiFormMessage.className = `form-message ${type}`;
+}
+
+function showReplySettings() {
+  if (!state.persona) return;
+  elements.personaInstruction.value = readReplyPreference(state.persona.id);
+  elements.replySettingsTitle.textContent = `${state.persona.name} · 回复方式`;
+  elements.replyFormMessage.textContent = "";
+  elements.replyFormMessage.className = "form-message";
+  elements.replySettingsDialog.showModal();
+  elements.personaInstruction.focus();
+}
+
+function saveReplyPreference(event) {
+  event.preventDefault();
+  if (!state.persona) return;
+  const value = elements.personaInstruction.value.replace(/\s+/g, " ").trim().slice(0, 300);
+  try {
+    if (value) localStorage.setItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`, value);
+    else localStorage.removeItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`);
+  } catch {
+    showReplyFormMessage("浏览器不允许保存这项设置。", "error");
+    return;
+  }
+  elements.personaInstruction.value = value;
+  showReplyFormMessage(value ? "已保存，下一次回信会采用这个偏好。" : "已恢复人物默认回复方式。", "success");
+  setTimeout(() => elements.replySettingsDialog.close(), reducedMotion ? 0 : 500);
+}
+
+function clearSavedReplyPreference() {
+  if (!state.persona) return;
+  try { localStorage.removeItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`); } catch {}
+  elements.personaInstruction.value = "";
+  showReplyFormMessage("已恢复人物默认回复方式。", "success");
+}
+
+function readReplyPreference(personaId) {
+  try { return String(localStorage.getItem(`${REPLY_PREFERENCE_PREFIX}${personaId}`) || "").slice(0, 300); }
+  catch { return ""; }
+}
+
+function showReplyFormMessage(message, type) {
+  elements.replyFormMessage.textContent = message;
+  elements.replyFormMessage.className = `form-message ${type}`;
+}
+
+function showHistory() {
+  if (!state.persona) return;
+  state.history = historyStore.load(state.persona.id);
+  elements.historyTitle.textContent = `${state.persona.name} · 历史档案`;
+  renderHistory();
+  elements.historyDialog.showModal();
+}
+
+function renderHistory() {
+  if (!state.history.length) {
+    const empty = document.createElement("p");
+    empty.className = "history-empty";
+    empty.textContent = "还没有真实 AI 对话。写下一个问题后，回信会保存在这里。";
+    elements.historyList.replaceChildren(empty);
+    return;
+  }
+  elements.historyList.replaceChildren(...state.history.map((turn) => {
+    const article = document.createElement("article");
+    article.className = "history-turn";
+    const time = document.createElement("time");
+    time.className = "history-time";
+    time.dateTime = turn.at;
+    time.textContent = formatArchiveTime(turn.at);
+    const copy = document.createElement("div");
+    copy.className = "history-copy";
+    const question = document.createElement("p");
+    question.className = "history-question";
+    question.textContent = `你写：${turn.transcript}`;
+    const reply = document.createElement("p");
+    reply.className = "history-reply";
+    reply.textContent = `${state.persona.name}：${turn.reply}`;
+    copy.append(question, reply);
+    article.append(time, copy);
+    return article;
+  }));
+}
+
+function clearPersonaHistory() {
+  if (!state.persona || !state.history.length) return;
+  historyStore.clear(state.persona.id);
+  state.history = [];
+  updateHistoryCount();
+  renderHistory();
+}
+
+function updateHistoryCount() {
+  elements.openHistory.textContent = `历史档案 · ${state.history.length}`;
+  elements.mobileHistory.setAttribute("aria-label", `查看历史档案，共 ${state.history.length} 条`);
+}
+
+function formatArchiveTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "时间未记载";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false
+  }).format(date);
 }
 
 function wait(ms) {

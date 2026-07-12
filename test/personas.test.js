@@ -26,6 +26,10 @@ test("builds a first-person, era-analogy, short-reply prompt", () => {
   assert.match(prompt, /时代类比/);
   assert.match(prompt, /40.*80/);
   assert.match(prompt, /不得编造/);
+  assert.match(prompt, /优先直接回答/);
+  assert.match(prompt, /你是谁/);
+  assert.match(prompt, /简短.*自我介绍/);
+  assert.match(prompt, /不要.*堆砌.*经典/);
 });
 
 test("keeps all persona prompts visibly distinct", () => {
