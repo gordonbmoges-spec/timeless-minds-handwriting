@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node server.js",
+    "build": "node build.mjs",
     "check": "node --check server.js && node --check public/app.js",
     "test": "node --test"
   },
