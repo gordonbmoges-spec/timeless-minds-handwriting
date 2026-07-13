@@ -11,7 +11,8 @@ const REPLY_PREFERENCE_PREFIX = "minds-archive-reply-preference-v1-";
 const IDLE_SEND_MS = 1_800;
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const historyStore = createHistoryStore();
-let apiSessionKey = "";
+let apiSessionConfig = null;
+let purgedLegacyApiSettings = false;
 
 const providerDefaults = {
   aliyun: {
@@ -380,7 +381,7 @@ function showApiSettings() {
   elements.apiBaseUrl.value = saved?.baseUrl || providerDefaults[provider].baseUrl;
   elements.apiModel.value = saved?.model || providerDefaults[provider].model;
   elements.modelHint.textContent = providerDefaults[provider].hint;
-  elements.apiFormMessage.textContent = saved ? "已读取当前浏览器中的配置。" : "";
+  elements.apiFormMessage.textContent = saved ? "已读取当前页面中的配置。" : "";
   elements.apiFormMessage.className = "form-message";
   elements.apiKey.type = "password";
   elements.toggleApiKey.textContent = "显示";
@@ -415,51 +416,28 @@ function saveApiSettings(event) {
     showApiFormMessage("接口地址格式不正确，必须使用 HTTPS。", "error");
     return;
   }
-  try {
-    const nonSecretConfig = {
-      provider: config.provider,
-      baseUrl: config.baseUrl,
-      model: config.model
-    };
-    localStorage.setItem(API_SETTINGS_KEY, JSON.stringify(nonSecretConfig));
-    apiSessionKey = config.apiKey;
-  } catch {
-    showApiFormMessage("浏览器不允许保存会话配置，无法启用本地模型。", "error");
-    return;
-  }
+  apiSessionConfig = config;
   updateConnectionCopy();
-  showApiFormMessage("配置已启用。API Key 只保留到当前标签页会话结束。", "success");
+  showApiFormMessage("配置已启用，刷新或关闭页面后会自动清除。", "success");
   setTimeout(() => elements.apiSettingsDialog.close(), reducedMotion ? 0 : 500);
 }
 
 function clearSavedApiSettings() {
   try { localStorage.removeItem(API_SETTINGS_KEY); } catch {}
-  apiSessionKey = "";
+  apiSessionConfig = null;
   elements.apiKey.value = "";
   elements.apiProvider.value = "aliyun";
   applyProviderDefaults();
   updateConnectionCopy();
-  showApiFormMessage("浏览器配置已清除，将使用服务器配置或演示模式。", "success");
+  showApiFormMessage("页面配置已清除，将使用服务器配置或演示模式。", "success");
 }
 
 function readApiSettings() {
-  try {
-    const value = JSON.parse(localStorage.getItem(API_SETTINGS_KEY));
-    const persistedKey = value?.apiKey || "";
-    if (persistedKey) {
-      const nonSecretConfig = {
-        provider: value.provider,
-        baseUrl: value.baseUrl,
-        model: value.model
-      };
-      localStorage.setItem(API_SETTINGS_KEY, JSON.stringify(nonSecretConfig));
-      apiSessionKey ||= persistedKey;
-    }
-    if (!apiSessionKey || !value?.baseUrl || !value?.model) return null;
-    return { ...value, apiKey: apiSessionKey };
-  } catch {
-    return null;
+  if (!purgedLegacyApiSettings) {
+    try { localStorage.removeItem(API_SETTINGS_KEY); } catch {}
+    purgedLegacyApiSettings = true;
   }
+  return apiSessionConfig;
 }
 
 function updateConnectionCopy() {

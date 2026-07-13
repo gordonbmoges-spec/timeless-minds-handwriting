@@ -9,12 +9,12 @@ test("real environment files stay ignored", async () => {
 
 test("browser API keys stay in page memory instead of browser storage", async () => {
   const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
-  assert.match(app, /let apiSessionKey = ""/);
-  assert.match(app, /apiSessionKey = config\.apiKey/);
-  assert.match(app, /apiSessionKey = ""/);
-  assert.match(app, /const persistedKey = value\?\.apiKey/);
-  assert.match(app, /localStorage\.setItem\(API_SETTINGS_KEY, JSON\.stringify\(nonSecretConfig\)\)/);
+  assert.match(app, /let apiSessionConfig = null/);
+  assert.match(app, /apiSessionConfig = config/);
+  assert.match(app, /apiSessionConfig = null/);
+  assert.match(app, /localStorage\.removeItem\(API_SETTINGS_KEY\)/);
   assert.doesNotMatch(app, /localStorage\.setItem\([^\n]*apiKey/);
+  assert.doesNotMatch(app, /localStorage\.setItem\(API_SETTINGS_KEY/);
   assert.doesNotMatch(app, /sessionStorage/);
 });
 
