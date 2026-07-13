@@ -70,7 +70,12 @@ test("selects the server-side persona prompt for an AI request", async () => {
     assert.equal(data.mode, "ai");
     assert.equal(data.personaId, "socrates");
     const systemPrompt = upstreamBody.messages.find((message) => message.role === "system").content;
+    const userPrompt = upstreamBody.messages.find((message) => message.role === "user").content[0].text;
     assert.match(systemPrompt, /苏格拉底/);
+    assert.match(systemPrompt, /英文问题用英文回答/);
+    assert.match(systemPrompt, /禁止文言文/);
+    assert.match(userPrompt, /Reply in that same primary language/);
+    assert.match(userPrompt, /natural modern conversational Chinese/);
     assert.doesNotMatch(JSON.stringify(upstreamBody), /test-key/);
   });
 });
@@ -100,6 +105,7 @@ test("adds a bounded reply preference without replacing server rules", async () 
     assert.match(systemPrompt, /不得编造/);
     assert.match(systemPrompt, /用户的回复偏好/);
     assert.match(systemPrompt, /先直接回答/);
+    assert.match(systemPrompt, /不能覆盖.*语言匹配.*现代语言表达/);
     assert.ok(systemPrompt.length < 1_400);
   });
 });
