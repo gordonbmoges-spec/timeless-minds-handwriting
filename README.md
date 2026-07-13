@@ -1,73 +1,105 @@
-# 墨影笔记 Web MVP
+# 跨时代思想档案馆
 
-一个参考 `MaximeRivest/riddle` 交互思路的网页版 MVP：用户在纸面上用鼠标、触控板或手写笔写字，停笔后墨迹淡出，后端读取手写 PNG，AI 生成短回复，前端用手写字体和采样到的笔画粗细、倾斜、节奏做回信动画。
+一个以手写为入口的历史人物互动 Web 应用。用户可以选择孔子、苏格拉底、达·芬奇、莎士比亚、荣格或爱因斯坦，在人物对应的时代场景中用鼠标、触屏或 Apple Pencil 写下问题。视觉模型识别字迹后，会按照服务器维护的人物思想边界生成一封短回信。
 
-这不是 reMarkable 设备应用，也不依赖电子墨水屏。第一版重点验证网页产品体验。
+在线演示：[timeless-minds-teng.ivory-titan-4292.chatgpt.site](https://timeless-minds-teng.ivory-titan-4292.chatgpt.site)
 
-## 运行
+在线演示默认不包含任何 API Key。未配置模型时会进入演示模式。`chatgpt.site` 在中国大陆网络环境下不能保证免 VPN 访问；需要面向国内用户时，应将本项目部署到国内可达的域名和托管服务。
+
+## 产品能力
+
+- 六位历史人物及六套独立场景、肖像和书写载体
+- Canvas 鼠标、触控和 Apple Pencil 输入
+- 合并采样点、压力平滑、手掌触控过滤和增量绘制
+- 停笔自动提交、手动发送、橡皮和清空
+- 视觉模型识别手写 PNG，并生成 40 至 80 字的人物回信
+- 服务器端人物白名单和人物提示词，不接受客户端任意系统提示词
+- 每个人物独立的本地历史记录与回复偏好
+- PWA 主屏幕入口和人物直达路由
+- 无 Key 演示模式
+
+人物回复属于 AI 演绎，不代表真实历史人物发言，也不应视为心理、医疗、法律或投资建议。
+
+## 本地运行
+
+要求 Node.js 18 或更高版本，推荐 Node.js 22。
 
 ```sh
+npm ci
 npm run dev
 ```
 
-打开 `http://localhost:3107`。
+打开终端显示的地址，默认是 `http://localhost:3107`。端口被占用时，服务器会自动尝试后续端口。
 
-如果 `3107` 已经被别的本地项目占用，服务会自动尝试 `3108`、`3109` 等后续端口，终端会打印实际 URL。
+运行验证：
 
-未配置 API Key 时会进入演示模式，完整展示交互，但不识别真实手写内容。
+```sh
+npm run check
+npm test
+npm run build
+npm audit --audit-level=high
+npm run security:secrets -- --history
+```
 
-## iPad 本地 Demo APP
+## 配置视觉模型
 
-1. 让 iPad 和这台 Mac 连接同一个 Wi-Fi。
-2. 在 iPad Safari 打开 Mac 的局域网地址，例如 `http://192.168.1.61:3107`。
-3. 点击 Safari 分享按钮，选择“添加到主屏幕”。
-4. 回到 iPad 主屏幕后，点击“墨影笔记”图标即可像本地 APP 一样进入演示。
-
-本地 IP 的 HTTP 页面可以作为主屏幕 APP 打开，但浏览器不会把它当作 HTTPS 安全源。需要离线缓存或正式安装体验时，应改用 HTTPS 域名或本机可信证书。
-
-## 接入真实 AI
+不配置模型即可使用人物演示回复。接入真实识别时，复制环境文件：
 
 ```sh
 cp .env.example .env
 ```
 
-推荐国内先用阿里云百炼 / 通义千问视觉模型：
+然后在 `.env` 中设置支持图片输入、兼容 Chat Completions 的模型服务：
 
-```sh
-AI_API_KEY=你的阿里云百炼 API Key
-AI_BASE_URL=https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
-AI_MODEL=qwen3-vl-plus
+```dotenv
+AI_API_KEY=replace-with-your-key
+AI_BASE_URL=https://your-provider.example/v1
+AI_MODEL=your-vision-model
 ```
 
-其中 `{WorkspaceId}` 是百炼控制台里的业务空间 ID。也可以换成任何兼容 `/chat/completions` 且支持图片输入的服务。
+`.env` 已被 git 忽略。不要把真实 Key 写入 README、截图、Issue、日志或提交历史。
 
-这个 MVP 需要的是“图片输入、文本输出”的多模态大模型 API，不是生图 API。前端会把你手写的纸面裁剪成 PNG，后端把这张 PNG 发给模型，让模型返回：
+网页也支持访客提供自己的模型配置。非敏感的接口地址与模型名称保存在 `localStorage`，API Key 只保存在当前标签页的 `sessionStorage`，并通过 HTTPS 发送到同源后端。关闭标签页会清除会话 Key。
 
-- `transcript`：识别出来的手写内容
-- `reply`：要写回纸面的话
+公开部署时，不建议直接暴露运营方自己的服务器 Key。若要这样做，必须额外增加登录鉴权、请求限流、供应商额度上限、监控和滥用处置。详细边界见 [SECURITY.md](SECURITY.md) 和 [PRIVACY.md](PRIVACY.md)。
 
-当前回信的手写动画是在浏览器 Canvas 里渲染出来的，不需要 AI 生图。
+## 项目结构
 
-## 当前能力
+```text
+public/                     浏览器应用、人物素材与 PWA 文件
+public/modules/             路由、手写、回复和历史模块
+lib/personas.js             服务器端人物注册表与提示词内核
+server.js                   本地 Node.js 服务和 AI 代理
+worker/                     Cloudflare Workers 兼容入口
+test/                       Node.js 自动化测试
+scripts/                    素材处理与密钥扫描工具
+assets-source/              处理前的人物素材源文件
+docs/                       产品设计和实施计划
+```
 
-- Canvas 纸面书写
-- 鼠标、触控板、触屏、手写笔输入
-- 笔 / 橡皮 / 立即发送 / 清空
-- 停笔自动提交
-- 手写内容裁剪为 PNG 发给后端
-- 无 Key 演示模式
-- OpenAI 兼容视觉模型接口
-- 采样用户笔迹粗细、倾斜、字形大小、书写节奏
-- 用本地 `Dancing Script` 字体生成手写回复动画
-- 最近回信列表
+## 安全设计
 
-## 后续版本建议
+- 请求体上限为 8 MiB，只接受 PNG Data URL
+- 只接受登记过的人物 ID
+- 客户端回复偏好限制为 300 字，不能覆盖服务器人物规则
+- 自定义模型地址必须使用 HTTPS，并拒绝常见本机和私网地址
+- API Key、请求正文、手写图片和模型正文不会被应用主动写入日志
+- 页面设置 CSP、防嵌套、MIME 嗅探防护、权限策略和引用来源策略
+- GitHub Actions 会运行测试、构建、依赖审计、提交历史密钥扫描和 CodeQL
+- Dependabot 每周检查 npm 与 GitHub Actions 更新
 
-- 用户字迹训练页：采集字母、数字、常用中文偏旁和短句。
-- 真正的个人字迹生成：把采样笔迹转成矢量字库、LoRA 或图像生成风格条件。
-- 登录和云端历史：保存每个用户的笔迹档案和日记历史。
-- 分享页面：生成一张可分享的回信纸面截图。
+安全扫描用于降低误提交风险，不能替代密钥轮换、供应商侧额度限制和生产基础设施防护。
 
-## 许可说明
+## 数据与素材
 
-本项目参考了 `MaximeRivest/riddle` 的产品机制，但实现为独立网页版。仓库中的 `DancingScript.ttf` 来自原项目使用的 Dancing Script 字体，许可证见 `public/assets/fonts/OFL-DancingScript.txt`。
+对话历史和人物回复偏好默认只保存在当前浏览器。启用 AI 后，手写裁剪图和必要上下文会发送到配置的模型服务商。项目本身不包含用户账号、云端历史数据库、广告或分析 SDK。
+
+历史肖像来源、作者、处理方式和权利状态记录在 [人物素材来源](public/assets/personas/SOURCES.md)。代码使用 MIT License；字体、历史肖像和生成素材的许可边界见 [ASSETS-LICENSE.md](ASSETS-LICENSE.md)。
+
+## 部署
+
+`npm run build` 会生成 Cloudflare Workers 兼容的 `dist/`。也可以继续使用 `server.js` 部署到支持 Node.js 的平台。生产环境必须使用 HTTPS，并在启用运营方模型 Key 前完成鉴权、限流和隐私说明。
+
+## 致谢
+
+产品机制参考了 `MaximeRivest/riddle` 的手写交互思路，但人物系统、场景、前后端实现和素材处理均为本项目的独立实现。

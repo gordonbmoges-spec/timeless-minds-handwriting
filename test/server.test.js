@@ -21,6 +21,9 @@ after(async () => {
 test("serves the application shell", async () => {
   const response = await fetch(`${baseUrl}/`);
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(response.headers.get("x-frame-options"), "DENY");
+  assert.match(response.headers.get("content-security-policy"), /default-src 'self'/);
   assert.match(await response.text(), /思想档案馆/);
 });
 

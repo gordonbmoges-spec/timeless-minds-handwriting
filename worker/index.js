@@ -1,6 +1,16 @@
 import { buildPersonaPrompt, getPersona } from "./personas.js";
 
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
+const SECURITY_HEADERS = Object.freeze({
+  "Content-Security-Policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; font-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; worker-src 'self'",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Resource-Policy": "same-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Referrer-Policy": "no-referrer",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY"
+});
 
 export default {
   async fetch(request, env) {
@@ -13,8 +23,9 @@ export default {
 
       if (request.method === "GET" || request.method === "HEAD") {
         const response = await env.ASSETS.fetch(request);
-        if (response.status !== 404 || url.pathname.includes(".")) return response;
-        return env.ASSETS.fetch(new Request(new URL("/", request.url), request));
+        if (response.status !== 404 || url.pathname.includes(".")) return secureResponse(response);
+        const shell = await env.ASSETS.fetch(new Request(new URL("/", request.url), request));
+        return secureResponse(shell);
       }
 
       return json({ error: "method_not_allowed" }, 405);
@@ -137,7 +148,16 @@ async function handleReply(request, env) {
 }
 
 function json(payload, status = 200) {
-  return Response.json(payload, { status, headers: { "Cache-Control": "no-store" } });
+  return Response.json(payload, {
+    status,
+    headers: { ...SECURITY_HEADERS, "Cache-Control": "no-store" }
+  });
+}
+
+function secureResponse(response) {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) headers.set(name, value);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
 function resolveApiConfig(clientConfig = {}, env = {}) {

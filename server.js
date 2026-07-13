@@ -10,6 +10,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const defaultPublicDir = path.join(__dirname, "public");
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
+const SECURITY_HEADERS = Object.freeze({
+  "Content-Security-Policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; font-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; worker-src 'self'",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Resource-Policy": "same-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Referrer-Policy": "no-referrer",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY"
+});
 
 export function createInkDiaryServer(options = {}) {
   const env = options.env ?? process.env;
@@ -189,6 +198,7 @@ async function serveStatic(pathname, res, headOnly, publicDir) {
     const file = await readFile(requested);
     const shouldRevalidate = /\.(?:html|css|js)$/.test(requested);
     res.writeHead(200, {
+      ...SECURITY_HEADERS,
       "Content-Type": mimeType(requested),
       "Cache-Control": shouldRevalidate ? "no-store" : "public, max-age=3600"
     });
@@ -199,6 +209,7 @@ async function serveStatic(pathname, res, headOnly, publicDir) {
       try {
         const shell = await readFile(path.join(publicDir, "index.html"));
         res.writeHead(200, {
+          ...SECURITY_HEADERS,
           "Content-Type": "text/html; charset=utf-8",
           "Cache-Control": "no-store"
         });
@@ -233,6 +244,7 @@ function readBody(req) {
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
+    ...SECURITY_HEADERS,
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store"
   });
@@ -240,7 +252,7 @@ function sendJson(res, status, payload) {
 }
 
 function sendText(res, status, text) {
-  res.writeHead(status, { "Content-Type": "text/plain; charset=utf-8" });
+  res.writeHead(status, { ...SECURITY_HEADERS, "Content-Type": "text/plain; charset=utf-8" });
   res.end(text);
 }
 
