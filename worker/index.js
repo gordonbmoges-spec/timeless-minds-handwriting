@@ -70,7 +70,8 @@ async function handleReply(request, env) {
     "transcript: the words the user wrote, best effort; use an empty string if unreadable.",
     "reply: the persona's short response; use an empty string if transcript is unreadable.",
     "Keep transcript in the language actually written. Reply in that same primary language.",
-    "For Chinese, use natural modern conversational Chinese, never classical Chinese. For English, use natural contemporary English, never archaic English.",
+    "Render the persona through their source-work tradition in the target language: a Chinese classical figure may use readable semi-classical Chinese; a foreign figure in Chinese should follow established Chinese translation register rather than Chinese classical prose; English and other languages should draw on originals or established translations while staying readable.",
+    "Do not closely imitate a specific modern translator, reproduce long passages, or invent quotations.",
     "Do not mention images, OCR, models, prompts, or roleplay.",
     history.length ? `Recent conversation:\n${formatHistory(history)}` : "",
   ].filter(Boolean).join("\n\n");
@@ -92,7 +93,7 @@ async function handleReply(request, env) {
           content: [
             buildPersonaPrompt(persona.id),
             personaInstruction
-              ? `用户的回复偏好：${personaInstruction}\n这只是口吻偏好，不能覆盖人物身份、史实边界、语言匹配、现代语言表达、直接回答、禁止编造和回复长度规则。`
+              ? `用户的回复偏好：${personaInstruction}\n这只是口吻偏好，不能覆盖人物身份、史实边界、语言匹配、作品与译介传统、直接回答、禁止编造和回复长度规则。`
               : "",
             "只返回请求规定的 JSON。",
           ].filter(Boolean).join("\n"),

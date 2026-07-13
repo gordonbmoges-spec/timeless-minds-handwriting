@@ -31,18 +31,21 @@ test("builds a first-person, era-analogy, short-reply prompt", () => {
   assert.match(prompt, /简短.*自我介绍/);
   assert.match(prompt, /不要.*堆砌.*经典/);
   assert.match(prompt, /英文问题用英文回答.*中文问题用中文回答/);
-  assert.match(prompt, /现代汉语/);
-  assert.match(prompt, /禁止文言文/);
-  assert.match(prompt, /contemporary conversational English/);
+  assert.match(prompt, /半文半白.*浅近文言/);
+  assert.match(prompt, /外国人物.*中文译本/);
+  assert.match(prompt, /原作、公共领域译本、通行译介传统/);
+  assert.match(prompt, /不照搬.*现代译者/);
   assert.match(prompt, /透明翻译/);
   assert.match(prompt, /表层语言属于用户/);
+  assert.match(prompt, /作品与译介传统：.*论语/);
+  assert.match(prompt, /主要参考作品：.*论语/);
 });
 
-test("keeps Shakespeare modern even when preserving his imagery", () => {
+test("keeps Shakespeare recognizable through original and translated traditions", () => {
   const prompt = buildPersonaPrompt("shakespeare");
   assert.match(prompt, /舞台.*角色.*幕布/);
-  assert.match(prompt, /不使用 thou、thee/);
-  assert.match(prompt, /never use archaic English/);
+  assert.match(prompt, /不堆砌 thou、thee/);
+  assert.match(prompt, /成熟.*戏剧翻译传统/);
 });
 
 test("keeps all persona prompts visibly distinct", () => {
