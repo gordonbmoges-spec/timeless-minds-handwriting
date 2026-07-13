@@ -1,4 +1,4 @@
-const CACHE_NAME = "minds-archive-local-app-v4";
+const CACHE_NAME = "minds-archive-local-app-v5";
 const APP_SHELL = [
   "/",
   "/index.html",

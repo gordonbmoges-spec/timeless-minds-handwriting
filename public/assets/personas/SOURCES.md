@@ -46,17 +46,17 @@
 
 - 文件：`socrates/background.webp`
 - 原始文件：`assets-source/personas/socrates/background-source.png`
-- 来源：`scripts/generate-persona-assets.mjs` 本地生成的固定 MVP 素材
+- 来源：项目开发阶段使用内置图像生成工具生成的固定精修素材
 - 用途：古典雅典石廊氛围背景
-- 处理：导出 PNG 后压缩为 WebP；运行时不调用生图 API
+- 处理：保留生成源图，压缩为 WebP；运行时不调用生图 API
 
 ### 蜡板
 
 - 文件：`socrates/paper.png`
 - 原始文件：`assets-source/personas/socrates/paper-source.png`
-- 来源：`scripts/generate-persona-assets.mjs` 本地生成的固定 MVP 素材
+- 来源：项目开发阶段使用内置图像生成工具生成的固定精修素材
 - 用途：正交俯视的蜡板书写载体
-- 处理：导出 RGBA PNG，保留透明边缘
+- 处理：从绿幕源图裁切，执行 Alpha 扣像、去绿溢色与尺寸规范化，输出 RGBA PNG
 
 ## 达·芬奇
 
@@ -75,17 +75,17 @@
 
 - 文件：`da-vinci/background.webp`
 - 原始文件：`assets-source/personas/da-vinci/background-source.png`
-- 来源：`scripts/generate-persona-assets.mjs` 本地生成的固定 MVP 素材
+- 来源：项目开发阶段使用内置图像生成工具生成的固定精修素材
 - 用途：文艺复兴工作室氛围背景
-- 处理：导出 PNG 后压缩为 WebP；运行时不调用生图 API
+- 处理：保留生成源图，压缩为 WebP；运行时不调用生图 API
 
 ### 手稿纸
 
 - 文件：`da-vinci/paper.png`
 - 原始文件：`assets-source/personas/da-vinci/paper-source.png`
-- 来源：`scripts/generate-persona-assets.mjs` 本地生成的固定 MVP 素材
+- 来源：项目开发阶段使用内置图像生成工具生成的固定精修素材
 - 用途：棉麻手稿纸书写载体
-- 处理：导出 RGBA PNG，保留透明边缘
+- 处理：从绿幕源图裁切，执行 Alpha 扣像、去绿溢色与尺寸规范化，输出 RGBA PNG
 
 ## 莎士比亚
 
@@ -104,17 +104,17 @@
 
 - 文件：`shakespeare/background.webp`
 - 原始文件：`assets-source/personas/shakespeare/background-source.png`
-- 来源：`scripts/generate-persona-assets.mjs` 本地生成的固定 MVP 素材
+- 来源：项目开发阶段使用内置图像生成工具生成的固定精修素材
 - 用途：伊丽莎白时代剧作书桌氛围背景
-- 处理：导出 PNG 后压缩为 WebP；运行时不调用生图 API
+- 处理：保留生成源图，压缩为 WebP；运行时不调用生图 API
 
 ### 布纹纸
 
 - 文件：`shakespeare/paper.png`
 - 原始文件：`assets-source/personas/shakespeare/paper-source.png`
-- 来源：`scripts/generate-persona-assets.mjs` 本地生成的固定 MVP 素材
+- 来源：项目开发阶段使用内置图像生成工具生成的固定精修素材
 - 用途：布纹纸书写载体
-- 处理：导出 RGBA PNG，保留透明边缘
+- 处理：从绿幕源图裁切，执行 Alpha 扣像、去绿溢色与尺寸规范化，输出 RGBA PNG
 
 ## 荣格
 
@@ -134,17 +134,17 @@
 
 - 文件：`jung/background.webp`
 - 原始文件：`assets-source/personas/jung/background-source.png`
-- 来源：`scripts/generate-persona-assets.mjs` 本地生成的固定 MVP 素材
+- 来源：项目开发阶段使用内置图像生成工具生成的固定精修素材
 - 用途：瑞士分析室氛围背景
-- 处理：导出 PNG 后压缩为 WebP；运行时不调用生图 API
+- 处理：保留生成源图，压缩为 WebP；运行时不调用生图 API
 
 ### 私人笔记纸
 
 - 文件：`jung/paper.png`
 - 原始文件：`assets-source/personas/jung/paper-source.png`
-- 来源：`scripts/generate-persona-assets.mjs` 本地生成的固定 MVP 素材
+- 来源：项目开发阶段使用内置图像生成工具生成的固定精修素材
 - 用途：私人笔记纸书写载体
-- 处理：导出 RGBA PNG，保留透明边缘
+- 处理：从绿幕源图裁切，执行 Alpha 扣像、去绿溢色与尺寸规范化，输出 RGBA PNG
 
 ## 爱因斯坦
 
@@ -163,14 +163,14 @@
 
 - 文件：`einstein/background.webp`
 - 原始文件：`assets-source/personas/einstein/background-source.png`
-- 来源：`scripts/generate-persona-assets.mjs` 本地生成的固定 MVP 素材
+- 来源：项目开发阶段使用内置图像生成工具生成的固定精修素材
 - 用途：普林斯顿书桌与黑板氛围背景
-- 处理：导出 PNG 后压缩为 WebP；运行时不调用生图 API
+- 处理：保留生成源图，压缩为 WebP；运行时不调用生图 API
 
 ### 方格草稿纸
 
 - 文件：`einstein/paper.png`
 - 原始文件：`assets-source/personas/einstein/paper-source.png`
-- 来源：`scripts/generate-persona-assets.mjs` 本地生成的固定 MVP 素材
+- 来源：项目开发阶段使用内置图像生成工具生成的固定精修素材
 - 用途：方格草稿纸书写载体
-- 处理：导出 RGBA PNG，保留透明边缘
+- 处理：从绿幕源图裁切，执行 Alpha 扣像、去绿溢色与尺寸规范化，输出 RGBA PNG
