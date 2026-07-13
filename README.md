@@ -59,7 +59,7 @@ AI_MODEL=your-vision-model
 
 `.env` 已被 git 忽略。不要把真实 Key 写入 README、截图、Issue、日志或提交历史。
 
-网页也支持访客提供自己的模型配置。非敏感的接口地址与模型名称保存在 `localStorage`，API Key 只保存在当前标签页的 `sessionStorage`，并通过 HTTPS 发送到同源后端。关闭标签页会清除会话 Key。
+网页也支持访客提供自己的模型配置。非敏感的接口地址与模型名称保存在 `localStorage`，API Key 只存在于当前页面的 JavaScript 内存中，并通过 HTTPS 发送到同源后端。刷新或关闭页面会清除 Key。
 
 公开部署时，不建议直接暴露运营方自己的服务器 Key。若要这样做，必须额外增加登录鉴权、请求限流、供应商额度上限、监控和滥用处置。详细边界见 [SECURITY.md](SECURITY.md) 和 [PRIVACY.md](PRIVACY.md)。
 

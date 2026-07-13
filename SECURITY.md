@@ -12,7 +12,7 @@ Include the affected route or file, reproduction steps, impact, and any suggeste
 
 - Real credentials belong in an untracked `.env` file or the hosting provider's encrypted environment settings.
 - `.env.example` contains names and placeholders only.
-- Browser-provided API keys are kept in `sessionStorage`, sent only to the same-origin backend over HTTPS, and cleared when the tab session ends.
+- Browser-provided API keys are kept only in page memory, sent to the same-origin backend over HTTPS, and cleared on refresh or close.
 - The server does not intentionally log API keys, request bodies, handwriting images, or model responses.
 - Run `npm run security:secrets -- --history` before publishing changes.
 

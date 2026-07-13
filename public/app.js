@@ -7,11 +7,11 @@ import { ReplyPresenter } from "/modules/reply-presenter.js";
 import { navigateTo, personaPath, routeFromPath } from "/modules/router.js";
 
 const API_SETTINGS_KEY = "ink-diary-api-settings-v1";
-const API_SESSION_KEY = "ink-diary-api-key-session-v1";
 const REPLY_PREFERENCE_PREFIX = "minds-archive-reply-preference-v1-";
 const IDLE_SEND_MS = 1_800;
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const historyStore = createHistoryStore();
+let apiSessionKey = "";
 
 const providerDefaults = {
   aliyun: {
@@ -416,9 +416,13 @@ function saveApiSettings(event) {
     return;
   }
   try {
-    const { apiKey, ...nonSecretConfig } = config;
+    const nonSecretConfig = {
+      provider: config.provider,
+      baseUrl: config.baseUrl,
+      model: config.model
+    };
     localStorage.setItem(API_SETTINGS_KEY, JSON.stringify(nonSecretConfig));
-    sessionStorage.setItem(API_SESSION_KEY, apiKey);
+    apiSessionKey = config.apiKey;
   } catch {
     showApiFormMessage("浏览器不允许保存会话配置，无法启用本地模型。", "error");
     return;
@@ -430,7 +434,7 @@ function saveApiSettings(event) {
 
 function clearSavedApiSettings() {
   try { localStorage.removeItem(API_SETTINGS_KEY); } catch {}
-  try { sessionStorage.removeItem(API_SESSION_KEY); } catch {}
+  apiSessionKey = "";
   elements.apiKey.value = "";
   elements.apiProvider.value = "aliyun";
   applyProviderDefaults();
@@ -443,16 +447,16 @@ function readApiSettings() {
     const value = JSON.parse(localStorage.getItem(API_SETTINGS_KEY));
     const persistedKey = value?.apiKey || "";
     if (persistedKey) {
-      const { apiKey: _removed, ...nonSecretConfig } = value;
+      const nonSecretConfig = {
+        provider: value.provider,
+        baseUrl: value.baseUrl,
+        model: value.model
+      };
       localStorage.setItem(API_SETTINGS_KEY, JSON.stringify(nonSecretConfig));
+      apiSessionKey ||= persistedKey;
     }
-    let apiKey = sessionStorage.getItem(API_SESSION_KEY);
-    if (!apiKey && persistedKey) {
-      sessionStorage.setItem(API_SESSION_KEY, persistedKey);
-      apiKey = persistedKey;
-    }
-    if (!apiKey || !value?.baseUrl || !value?.model) return null;
-    return { ...value, apiKey };
+    if (!apiSessionKey || !value?.baseUrl || !value?.model) return null;
+    return { ...value, apiKey: apiSessionKey };
   } catch {
     return null;
   }
@@ -461,7 +465,7 @@ function readApiSettings() {
 function updateConnectionCopy() {
   const config = readApiSettings();
   elements.modeCopy.textContent = config
-    ? `已配置 ${providerName(config.provider)} · ${config.model}。Key 仅保存在当前标签页会话。`
+    ? `已配置 ${providerName(config.provider)} · ${config.model}。Key 仅保存在页面内存。`
     : "尚未在浏览器配置 API。服务器有 Key 时自动使用，否则进入演示模式。";
 }
 

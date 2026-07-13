@@ -7,13 +7,15 @@ test("real environment files stay ignored", async () => {
   assert.match(gitignore, /^\.env$/m);
 });
 
-test("browser API keys use session storage instead of persistent storage", async () => {
+test("browser API keys stay in page memory instead of browser storage", async () => {
   const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
-  assert.match(app, /sessionStorage\.setItem\(API_SESSION_KEY, apiKey\)/);
-  assert.match(app, /sessionStorage\.removeItem\(API_SESSION_KEY\)/);
+  assert.match(app, /let apiSessionKey = ""/);
+  assert.match(app, /apiSessionKey = config\.apiKey/);
+  assert.match(app, /apiSessionKey = ""/);
   assert.match(app, /const persistedKey = value\?\.apiKey/);
   assert.match(app, /localStorage\.setItem\(API_SETTINGS_KEY, JSON\.stringify\(nonSecretConfig\)\)/);
   assert.doesNotMatch(app, /localStorage\.setItem\([^\n]*apiKey/);
+  assert.doesNotMatch(app, /sessionStorage/);
 });
 
 test("server and worker define baseline browser security headers", async () => {
