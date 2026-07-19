@@ -658,7 +658,7 @@ function setupOpeningFlipbook() {
   pageFlip.on("init", () => {
     if (state.pageFlip !== pageFlip || state.closing) return;
     state.flipTimers.push(setTimeout(() => pageFlip.flipNext("top"), 940));
-    state.flipTimers.push(setTimeout(() => pageFlip.flipNext("bottom"), 2_230));
+    state.flipTimers.push(setTimeout(() => pageFlip.flipNext("bottom"), 2_720));
   });
   pageFlip.loadFromHTML(pages);
 }

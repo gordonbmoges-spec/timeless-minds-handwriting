@@ -31,6 +31,14 @@ test("ships one straight-on cover for every shelf and opening sequence", async (
   }
 });
 
+test("ships photorealistic generated inner pages", async () => {
+  for (const filename of ["arcane-inscription.webp", "blank-vellum.webp"]) {
+    const url = new URL(`../public/assets/magic/pages/${filename}`, import.meta.url);
+    await access(url);
+    assert.ok((await stat(url)).size > 300_000, `${filename} should preserve detailed parchment texture`);
+  }
+});
+
 test("uses a quiet two-row flat-cover gallery and the same cover while opening", async () => {
   const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
   assert.match(css, /\.persona-list \.shelf-upper\s*\{[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\);/s);
@@ -69,6 +77,7 @@ test("keeps the selected cover alive through the shelf-to-page handoff", async (
 test("crossfades the opening cover and returns it to the same shelf slot", async () => {
   const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
   const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
   assert.match(app, /function createBookReturnPortal\(/);
   assert.match(app, /function finishBookReturnToShelf\(/);
   assert.match(app, /target\.classList\.add\("is-return-target"\)/);
@@ -78,7 +87,14 @@ test("crossfades the opening cover and returns it to the same shelf slot", async
   assert.match(css, /\.opening-flip-cover\.stf__item\.--hard\s*\{[^}]*background:transparent!important;/s);
   assert.doesNotMatch(css, /var\(--opening-cover-image\)[^;}]*#120b07/s);
   assert.match(css, /\.opening-flip-paper\.stf__item\s*\{[^}]*background:transparent;/s);
-  assert.match(css, /@keyframes openingPagesReveal\s*\{\s*0%,44%\s*\{\s*opacity:0;/s);
+  assert.doesNotMatch(css, /@keyframes openingPagesReveal/);
+  assert.match(css, /\.opening-flip-paper \.pageflip-parchment-face\s*\{[^}]*inset:2\.8% 6\.2% 3\.2% 4\.8%;/s);
+  assert.match(css, /\.opening-flip-paper\.--left \.pageflip-parchment-face\s*\{[^}]*inset:2\.8% 1\.15% 3\.2% 4\.8%;/s);
+  assert.match(css, /\.opening-flip-paper\.--right \.pageflip-parchment-face\s*\{[^}]*inset:2\.8% 6\.2% 3\.2% 1\.15%;/s);
+  assert.match(css, /arcane-inscription\.webp/);
+  assert.match(css, /blank-vellum\.webp/);
+  assert.match(html, /pageflip-blank-face[\s\S]*pageflip-arcane-face[\s\S]*pageflip-blank-face/);
+  assert.match(app, /pageFlip\.flipNext\("bottom"\), 2_720/);
   assert.match(css, /@keyframes returnClosedBook/);
   assert.match(css, /@keyframes bookPortalReturn/);
 });
