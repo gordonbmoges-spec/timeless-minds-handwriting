@@ -89,8 +89,8 @@ test("crossfades the opening cover and returns it to the same shelf slot", async
   assert.match(css, /\.opening-flip-paper\.stf__item\s*\{[^}]*background:transparent;/s);
   assert.doesNotMatch(css, /@keyframes openingPagesReveal/);
   assert.match(css, /\.opening-flip-paper \.pageflip-parchment-face\s*\{[^}]*inset:2\.8% 6\.2% 3\.2% 4\.8%;/s);
-  assert.match(css, /\.opening-flip-paper\.--left \.pageflip-parchment-face\s*\{[^}]*inset:2\.8% 1\.15% 3\.2% 4\.8%;/s);
-  assert.match(css, /\.opening-flip-paper\.--right \.pageflip-parchment-face\s*\{[^}]*inset:2\.8% 6\.2% 3\.2% 1\.15%;/s);
+  assert.match(css, /\.opening-flip-paper\.--left \.pageflip-parchment-face\s*\{[^}]*inset:2\.8% -\.35% 3\.2% 4\.8%;[^}]*clip-path:polygon\([^)]*100% 0,100% 100%/s);
+  assert.match(css, /\.opening-flip-paper\.--right \.pageflip-parchment-face\s*\{[^}]*inset:2\.8% 6\.2% 3\.2% -\.35%;[^}]*clip-path:polygon\(0 0,[^)]*0 100%\)/s);
   assert.match(css, /arcane-inscription\.webp/);
   assert.match(css, /blank-vellum\.webp/);
   assert.match(html, /pageflip-blank-face[\s\S]*pageflip-arcane-face[\s\S]*pageflip-blank-face/);
