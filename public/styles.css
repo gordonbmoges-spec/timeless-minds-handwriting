@@ -2173,6 +2173,19 @@ body {
   background:transparent!important;
   box-shadow:none!important;
 }
+.scene-view.has-generated-cover .opening-flip-paper,
+.scene-view.has-generated-cover .opening-flip-paper.stf__item {
+  border-color:transparent;
+  background:transparent;
+  box-shadow:none;
+}
+.scene-view.has-generated-cover.is-book-opening .opening-flip-paper .pageflip-parchment-face {
+  animation:openingPagesReveal 4.35s ease both;
+}
+@keyframes openingPagesReveal {
+  0%,44% { opacity:0; }
+  54%,100% { opacity:1; }
+}
 .scene-view.has-generated-cover .pageflip-cover-face:not(.pageflip-back-cover)::after {
   display:none;
 }
