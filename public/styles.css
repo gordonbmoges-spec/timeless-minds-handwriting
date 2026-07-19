@@ -1838,3 +1838,89 @@ body {
   .book-shelf-row .book-card { min-width:24px;max-width:44px; }
   .book-shelf-row .book-title { font-size:clamp(9px,2.5vw,13px); }
 }
+
+/* V9 · AI-generated physical books replace the procedural leather spines. */
+.book-shelf-row { left:27%;right:18%;overflow:visible; }
+.book-shelf-row .generated-book-card {
+  flex:0 0 clamp(76px,8.2vw,108px);
+  width:clamp(76px,8.2vw,108px);
+  min-width:76px;
+  max-width:108px;
+  height:100%;
+  margin:0;
+  filter:none;
+  transform:translateZ(0);
+  overflow:visible;
+}
+.book-shelf-row .generated-book-card + .generated-book-card { margin-left:clamp(-25px,-1.8vw,-18px); }
+.book-shelf-row .generated-book-card:nth-child(3n + 2) { height:96%;transform:translateZ(4px) rotateZ(.35deg); }
+.book-shelf-row .generated-book-card:nth-child(4n) { height:91%;transform:translateZ(-2px) rotateZ(-.45deg); }
+.book-shelf-row .generated-book-card:nth-child(5n) { height:98%;transform:translateZ(2px) rotateZ(.2deg); }
+.generated-book-image {
+  position:absolute;
+  z-index:1;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  object-position:50% 100%;
+  pointer-events:none;
+  user-select:none;
+  filter:drop-shadow(6px 8px 6px rgba(0,0,0,.76)) brightness(.93) saturate(.94);
+  transition:filter .22s ease,transform .22s ease;
+}
+.generated-book-card .book-volume {
+  z-index:2;
+  display:block;
+  overflow:visible;
+  padding:0;
+  border:0;
+  border-radius:0;
+  color:#f0d894;
+  background:transparent;
+  box-shadow:none;
+  transform:none;
+  pointer-events:none;
+}
+.generated-book-card .book-volume::before,.generated-book-card .book-volume::after,
+.generated-book-card .book-number,.generated-book-card .book-latin,.generated-book-card .book-owner { display:none; }
+.generated-book-card .book-title {
+  position:absolute;
+  z-index:3;
+  top:51%;
+  left:49%;
+  max-height:68%;
+  margin:0;
+  padding:5px 3px;
+  border-block:1px solid rgba(221,185,99,.44);
+  color:#f3d88e;
+  background:linear-gradient(90deg,transparent,rgba(12,8,4,.54),transparent);
+  writing-mode:vertical-rl;
+  text-orientation:upright;
+  font:400 clamp(10px,.9vw,13px)/1.12 "Songti SC","STSong","ZCOOL XiaoWei",serif;
+  letter-spacing:.04em;
+  text-shadow:0 1px 2px #000,0 0 5px rgba(0,0,0,.92);
+  transform:translate(-50%,-50%);
+}
+.generated-book-card:hover .generated-book-image,.generated-book-card:focus-visible .generated-book-image {
+  filter:drop-shadow(10px 13px 9px rgba(0,0,0,.8)) brightness(1.08) saturate(1.02);
+  transform:translateY(-4px) scale(1.035);
+}
+.generated-book-card:hover .book-volume,.generated-book-card:focus-visible .book-volume {
+  border:0;
+  filter:none;
+  box-shadow:none;
+}
+
+@media (max-aspect-ratio:4/3) {
+  .book-shelf-row { left:17%;right:5%; }
+  .book-shelf-row .generated-book-card { flex-basis:clamp(72px,10.5vw,112px);width:clamp(72px,10.5vw,112px);min-width:72px;max-width:112px; }
+  .book-shelf-row .generated-book-card + .generated-book-card { margin-left:clamp(-28px,-2.4vw,-20px); }
+  .generated-book-card .book-title { font-size:clamp(10px,1.35vw,13px); }
+}
+@media (max-width:720px) {
+  .book-shelf-row { left:11%;right:2%; }
+  .book-shelf-row .generated-book-card { flex-basis:clamp(58px,14vw,88px);width:clamp(58px,14vw,88px);min-width:58px;max-width:88px; }
+  .book-shelf-row .generated-book-card + .generated-book-card { margin-left:-20px; }
+  .generated-book-card .book-title { font-size:clamp(8px,2.2vw,11px); }
+}

@@ -13,6 +13,16 @@ const REPLY_PREFERENCE_PREFIX = "minds-archive-reply-preference-v1-";
 const PERSONA_MEMORY_PREFIX = "minds-archive-memory-v1-";
 const IDLE_SEND_MS = 1_800;
 const HISTORICAL_PERSONA_IDS = new Set(["confucius", "socrates", "da-vinci", "shakespeare", "jung", "einstein"]);
+const GENERATED_BOOK_IMAGES = Object.freeze({
+  confucius: "/assets/magic/books/confucius.webp",
+  socrates: "/assets/magic/books/socrates.webp",
+  "da-vinci": "/assets/magic/books/da-vinci.webp",
+  shakespeare: "/assets/magic/books/shakespeare.webp",
+  jung: "/assets/magic/books/jung.webp",
+  einstein: "/assets/magic/books/einstein.webp",
+  "tom-riddle": "/assets/magic/books/tom-riddle.webp",
+  "human-parchment": "/assets/magic/books/human-parchment.webp"
+});
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const historyStore = createHistoryStore();
 const customBookStore = createCustomBookStore();
@@ -89,8 +99,11 @@ function renderArchive() {
     const available = Boolean(assets);
     const button = document.createElement("button");
     const isMirror = persona.id === "magic-mirror";
+    const generatedBookImage = GENERATED_BOOK_IMAGES[persona.id];
     const displayTitle = HISTORICAL_PERSONA_IDS.has(persona.id) ? persona.name : (persona.bookTitle || persona.name);
-    button.className = isMirror ? "mirror-card archive-entry" : `book-card archive-entry book-${persona.bookTone || "archive"}`;
+    button.className = isMirror
+      ? "mirror-card archive-entry"
+      : `book-card archive-entry book-${persona.bookTone || "archive"}${generatedBookImage ? " generated-book-card" : ""}`;
     button.type = "button";
     button.dataset.personaId = persona.id;
     button.setAttribute("aria-disabled", String(!available));
@@ -110,6 +123,14 @@ function renderArchive() {
 
     const volume = document.createElement("span");
     volume.className = "book-volume";
+
+    if (generatedBookImage) {
+      const bookImage = document.createElement("img");
+      bookImage.className = "generated-book-image";
+      bookImage.src = generatedBookImage;
+      bookImage.alt = "";
+      button.append(bookImage);
+    }
 
     const number = document.createElement("span");
     number.className = "book-number";
