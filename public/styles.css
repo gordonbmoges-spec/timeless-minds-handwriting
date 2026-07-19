@@ -2161,11 +2161,17 @@ body {
 .scene-view.has-generated-cover .pageflip-cover-face:not(.pageflip-back-cover) {
   display:block;
   padding:0;
-  background:
-    linear-gradient(rgba(15,8,4,.04),rgba(8,4,2,.14)),
-    var(--opening-cover-image) center / contain no-repeat,
-    #120b07;
+  background:var(--opening-cover-image) center / contain no-repeat;
   box-shadow:none;
+}
+.scene-view.has-generated-cover .opening-flip-cover,
+.scene-view.has-generated-cover .opening-flip-cover.stf__item,
+.scene-view.has-generated-cover .opening-flip-cover.stf__item.--hard {
+  overflow:visible;
+  border:0!important;
+  outline:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
 }
 .scene-view.has-generated-cover .pageflip-cover-face:not(.pageflip-back-cover)::after {
   display:none;

@@ -75,6 +75,8 @@ test("crossfades the opening cover and returns it to the same shelf slot", async
   assert.doesNotMatch(css, /portalThicknessIn/);
   assert.match(css, /filter:blur\(1\.1px\) brightness\(\.9\)/);
   assert.match(css, /0%,3% \{ opacity:0;filter:blur\(1\.1px\) brightness\(\.9\)/);
+  assert.match(css, /\.opening-flip-cover\.stf__item\.--hard\s*\{[^}]*background:transparent!important;/s);
+  assert.doesNotMatch(css, /var\(--opening-cover-image\)[^;}]*#120b07/s);
   assert.match(css, /@keyframes returnClosedBook/);
   assert.match(css, /@keyframes bookPortalReturn/);
 });

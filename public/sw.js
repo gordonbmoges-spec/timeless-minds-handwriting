@@ -1,4 +1,4 @@
-const CACHE_NAME = "answering-library-local-app-v22";
+const CACHE_NAME = "answering-library-local-app-v23";
 const APP_SHELL = [
   "/",
   "/index.html",
