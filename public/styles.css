@@ -2007,3 +2007,220 @@ body {
 @media (max-width:720px) {
   .book-shelf-row .generated-book-card + .generated-book-card { margin-left:clamp(-30px,-7vw,-22px); }
 }
+
+/* V11 · face-forward cover gallery, split across the two photographed shelves. */
+.persona-list .book-shelf-row {
+  right:auto;
+  display:grid;
+  align-items:end;
+  justify-content:stretch;
+  gap:clamp(8px,1.2vw,18px);
+  overflow:visible;
+  pointer-events:none;
+  perspective:none;
+  transform-style:flat;
+}
+.persona-list .shelf-upper {
+  right:17%;
+  bottom:var(--upper-shelf-bottom);
+  left:27%;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  height:min(21vh,180px);
+}
+.persona-list .shelf-lower {
+  right:15%;
+  bottom:30.2vh;
+  left:50%;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  height:min(21vh,180px);
+}
+.persona-list .book-shelf-row::after { display:none; }
+.persona-list .book-shelf-row .flat-cover-card {
+  position:relative;
+  z-index:1;
+  justify-self:center;
+  width:auto;
+  min-width:0;
+  max-width:100%;
+  height:100%;
+  min-height:0;
+  max-height:none;
+  margin:0;
+  aspect-ratio:2 / 3;
+  overflow:visible;
+  pointer-events:auto;
+  filter:none;
+  transform:none;
+  transform-style:flat;
+}
+.flat-cover-card::after {
+  z-index:-1;
+  right:5%;
+  bottom:-5px;
+  left:5%;
+  height:9px;
+  background:rgba(0,0,0,.62);
+  filter:blur(5px);
+}
+.flat-cover-image {
+  position:absolute;
+  z-index:1;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  object-position:50% 100%;
+  pointer-events:none;
+  user-select:none;
+  filter:drop-shadow(5px 7px 5px rgba(0,0,0,.72)) brightness(.78) saturate(.9) contrast(1.04);
+  transition:filter .2s ease,transform .2s ease;
+}
+.persona-list .flat-cover-card .book-volume {
+  z-index:2;
+  display:block;
+  overflow:visible;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  filter:none;
+  transform:none;
+  pointer-events:none;
+}
+.flat-cover-card .book-volume::before,.flat-cover-card .book-volume::after,
+.flat-cover-card .book-number,.flat-cover-card .book-cameo,.flat-cover-card .book-sigil,
+.flat-cover-card .book-latin,.flat-cover-card .book-owner,.flat-cover-card .book-open-copy { display:none; }
+.persona-list .flat-cover-card .book-title {
+  position:absolute;
+  z-index:3;
+  top:auto;
+  right:auto;
+  bottom:7%;
+  left:50%;
+  width:max-content;
+  max-width:86%;
+  max-height:none;
+  margin:0;
+  padding:3px 8px 4px;
+  border:1px solid rgba(211,177,104,.34);
+  border-radius:2px;
+  color:#ead18b;
+  background:rgba(10,6,3,.66);
+  writing-mode:horizontal-tb;
+  text-orientation:mixed;
+  font:400 clamp(9px,.82vw,12px)/1.15 "Songti SC","STSong","ZCOOL XiaoWei",serif;
+  letter-spacing:.08em;
+  text-align:center;
+  text-shadow:0 1px 2px #000;
+  white-space:nowrap;
+  transform:translateX(-50%);
+}
+.persona-list .flat-cover-card:hover,
+.persona-list .flat-cover-card:focus-visible {
+  z-index:4;
+  outline:none;
+  filter:none;
+  transform:translateY(-2px);
+}
+.flat-cover-card:hover .flat-cover-image,
+.flat-cover-card:focus-visible .flat-cover-image {
+  filter:drop-shadow(7px 10px 7px rgba(0,0,0,.78)) brightness(.88) saturate(.94) contrast(1.04);
+  transform:scale(1.008);
+}
+.persona-list .flat-cover-card:hover .book-volume,
+.persona-list .flat-cover-card:focus-visible .book-volume,
+.persona-list .flat-cover-card.is-opening .book-volume {
+  border:0;
+  background:transparent;
+  box-shadow:none;
+  filter:none;
+}
+.persona-list .flat-cover-card.is-opening {
+  z-index:40;
+  animation:flatCoverSelect 1.68s cubic-bezier(.18,.78,.14,1) both;
+}
+@keyframes flatCoverSelect {
+  0% { opacity:1;filter:none;transform:translate3d(0,0,0) scale(1); }
+  24% { opacity:1;filter:none;transform:translate3d(0,-4px,0) scale(1.025); }
+  68% { opacity:1;filter:drop-shadow(16px 23px 14px rgba(0,0,0,.68));transform:translate3d(0,-13px,0) scale(1.34); }
+  100% { opacity:0;filter:blur(.7px) drop-shadow(24px 32px 18px rgba(0,0,0,.58));transform:translate3d(0,-2vh,0) scale(2.05); }
+}
+
+/* The photographed mirror stays quiet; no synthetic green hover ring. */
+.mirror-card:hover::before,.mirror-card:focus-visible::before {
+  border-color:transparent;
+  background:transparent;
+  box-shadow:none;
+}
+.mirror-card:hover,.mirror-card:focus-visible { outline:none; }
+
+/* The same generated cover travels into the real page-turn sequence. */
+.opening-sequence { perspective:1600px; }
+.opening-book-stage { transform-style:preserve-3d; }
+.scene-view.has-generated-cover .pageflip-cover-face:not(.pageflip-back-cover) {
+  display:block;
+  padding:0;
+  background:
+    linear-gradient(rgba(15,8,4,.04),rgba(8,4,2,.14)),
+    var(--opening-cover-image) center / contain no-repeat,
+    #120b07;
+  box-shadow:inset 0 0 0 1px rgba(224,194,130,.25),inset 0 0 34px rgba(0,0,0,.16);
+}
+.scene-view.has-generated-cover .pageflip-cover-face:not(.pageflip-back-cover)::after {
+  inset:2.5%;
+  border-color:rgba(229,206,155,.14);
+  box-shadow:none;
+}
+.scene-view.has-generated-cover .opening-cover-sigil { display:none; }
+.scene-view.has-generated-cover .pageflip-cover-face strong {
+  position:absolute;
+  z-index:3;
+  right:9%;
+  bottom:11%;
+  left:9%;
+  margin:0;
+  padding:10px 12px 12px;
+  border:1px solid rgba(224,192,122,.36);
+  color:#f0d994;
+  background:rgba(9,5,3,.66);
+  font-size:clamp(24px,4vw,46px);
+  letter-spacing:.11em;
+  text-shadow:0 2px 4px #000;
+}
+.scene-view.has-generated-cover .pageflip-cover-face small {
+  right:10%;
+  bottom:5.5%;
+  left:10%;
+  color:rgba(230,211,166,.7);
+}
+.scene-view.is-book-opening .opening-sequence { animation-duration:4.35s; }
+.scene-view.is-book-opening .opening-book-stage { animation-duration:4.3s; }
+.scene-view.is-book-opening .opening-book-shadow { animation:realBookShadow 4.3s ease both; }
+.scene-view.is-closing-book .opening-sequence { animation-duration:2.85s; }
+.scene-view.is-closing-book .opening-book-stage { animation-duration:2.82s; }
+.scene-view.is-book-opening .paper-object { animation-duration:4.35s; }
+.scene-view.is-closing-book .paper-object { animation-duration:2.85s; }
+@keyframes realBookArrive {
+  0% { opacity:0;filter:blur(4px);transform:translateY(16vh) scale(.72) rotateX(13deg) rotateZ(-.8deg); }
+  15% { opacity:1; }
+  34%,88% { opacity:1;filter:none;transform:translateY(0) scale(1) rotateX(0) rotateZ(0); }
+  100% { opacity:0;filter:blur(.6px);transform:translateY(-1.5vh) scale(1.025); }
+}
+@keyframes realBookShadow {
+  0% { opacity:0;transform:translateX(-50%) scale(.45); }
+  22%,88% { opacity:1;transform:translateX(-50%) scale(1); }
+  100% { opacity:0;transform:translateX(-50%) scale(1.08); }
+}
+@keyframes realParchmentReveal { 0%,78%{opacity:0;filter:brightness(.48)} 100%{opacity:1;filter:none} }
+
+@media (max-aspect-ratio:4/3) {
+  .persona-list .shelf-upper { right:9%;left:22%;height:min(14vh,196px);gap:clamp(6px,.8vw,10px); }
+  .persona-list .shelf-lower { right:8%;bottom:34.2vh;left:46%;height:min(14vh,196px);gap:clamp(8px,1.1vw,13px); }
+  .persona-list .flat-cover-card .book-title { font-size:clamp(9px,1.25vw,12px); }
+}
+@media (max-width:720px) {
+  .persona-list .shelf-upper { right:4%;left:12%;height:13.5vh;gap:4px; }
+  .persona-list .shelf-lower { right:4%;left:43%;height:13.5vh;gap:6px; }
+  .persona-list .flat-cover-card .book-title { padding:2px 5px 3px;font-size:clamp(8px,2vw,10px); }
+}

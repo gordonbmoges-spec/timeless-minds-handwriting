@@ -1,4 +1,4 @@
-const CACHE_NAME = "answering-library-local-app-v17";
+const CACHE_NAME = "answering-library-local-app-v18";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -26,6 +26,14 @@ const APP_SHELL = [
   "/assets/magic/books/einstein.webp",
   "/assets/magic/books/tom-riddle.webp",
   "/assets/magic/books/human-parchment.webp",
+  "/assets/magic/covers/confucius.webp",
+  "/assets/magic/covers/socrates.webp",
+  "/assets/magic/covers/da-vinci.webp",
+  "/assets/magic/covers/shakespeare.webp",
+  "/assets/magic/covers/jung.webp",
+  "/assets/magic/covers/einstein.webp",
+  "/assets/magic/covers/tom-riddle.webp",
+  "/assets/magic/covers/human-parchment.webp",
   "/assets/personas/magic-mirror/background.webp",
   "/assets/magic/antique-leather-spine.png",
   "/assets/magic/blank-parchment.png",

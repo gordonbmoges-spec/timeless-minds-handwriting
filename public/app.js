@@ -13,15 +13,15 @@ const REPLY_PREFERENCE_PREFIX = "minds-archive-reply-preference-v1-";
 const PERSONA_MEMORY_PREFIX = "minds-archive-memory-v1-";
 const IDLE_SEND_MS = 1_800;
 const HISTORICAL_PERSONA_IDS = new Set(["confucius", "socrates", "da-vinci", "shakespeare", "jung", "einstein"]);
-const GENERATED_BOOK_IMAGES = Object.freeze({
-  confucius: "/assets/magic/books/confucius.webp",
-  socrates: "/assets/magic/books/socrates.webp",
-  "da-vinci": "/assets/magic/books/da-vinci.webp",
-  shakespeare: "/assets/magic/books/shakespeare.webp",
-  jung: "/assets/magic/books/jung.webp",
-  einstein: "/assets/magic/books/einstein.webp",
-  "tom-riddle": "/assets/magic/books/tom-riddle.webp",
-  "human-parchment": "/assets/magic/books/human-parchment.webp"
+const GENERATED_COVER_IMAGES = Object.freeze({
+  confucius: "/assets/magic/covers/confucius.webp",
+  socrates: "/assets/magic/covers/socrates.webp",
+  "da-vinci": "/assets/magic/covers/da-vinci.webp",
+  shakespeare: "/assets/magic/covers/shakespeare.webp",
+  jung: "/assets/magic/covers/jung.webp",
+  einstein: "/assets/magic/covers/einstein.webp",
+  "tom-riddle": "/assets/magic/covers/tom-riddle.webp",
+  "human-parchment": "/assets/magic/covers/human-parchment.webp"
 });
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const historyStore = createHistoryStore();
@@ -99,11 +99,11 @@ function renderArchive() {
     const available = Boolean(assets);
     const button = document.createElement("button");
     const isMirror = persona.id === "magic-mirror";
-    const generatedBookImage = GENERATED_BOOK_IMAGES[persona.id];
+    const generatedCoverImage = GENERATED_COVER_IMAGES[persona.id];
     const displayTitle = HISTORICAL_PERSONA_IDS.has(persona.id) ? persona.name : (persona.bookTitle || persona.name);
     button.className = isMirror
       ? "mirror-card archive-entry"
-      : `book-card archive-entry book-${persona.bookTone || "archive"}${generatedBookImage ? " generated-book-card" : ""}`;
+      : `book-card archive-entry book-${persona.bookTone || "archive"}${generatedCoverImage ? " flat-cover-card" : ""}`;
     button.type = "button";
     button.dataset.personaId = persona.id;
     button.setAttribute("aria-disabled", String(!available));
@@ -124,10 +124,10 @@ function renderArchive() {
     const volume = document.createElement("span");
     volume.className = "book-volume";
 
-    if (generatedBookImage) {
+    if (generatedCoverImage) {
       const bookImage = document.createElement("img");
-      bookImage.className = "generated-book-image";
-      bookImage.src = generatedBookImage;
+      bookImage.className = "flat-cover-image";
+      bookImage.src = generatedCoverImage;
       bookImage.alt = "";
       button.append(bookImage);
     }
@@ -175,10 +175,14 @@ function renderArchive() {
   });
 
   const mirror = entries.find((entry) => entry.dataset.personaId === "magic-mirror");
-  const shelfRow = document.createElement("div");
-  shelfRow.className = "book-shelf-row";
-  shelfRow.append(...entries.filter((entry) => entry !== mirror));
-  elements.personaList.replaceChildren(...(mirror ? [mirror] : []), shelfRow);
+  const shelfEntries = entries.filter((entry) => entry !== mirror);
+  const upperShelf = document.createElement("div");
+  upperShelf.className = "book-shelf-row shelf-upper";
+  upperShelf.append(...shelfEntries.slice(0, 5));
+  const lowerShelf = document.createElement("div");
+  lowerShelf.className = "book-shelf-row shelf-lower";
+  lowerShelf.append(...shelfEntries.slice(5));
+  elements.personaList.replaceChildren(...(mirror ? [mirror] : []), upperShelf, lowerShelf);
 }
 
 function openBook(personaId, button) {
@@ -284,7 +288,7 @@ function showArchive() {
   state.assets = null;
   elements.sceneView.hidden = true;
   elements.archiveView.hidden = false;
-  elements.sceneView.classList.remove("is-revealed", "is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror");
+  elements.sceneView.classList.remove("is-revealed", "is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover");
   elements.bookDrawer.setAttribute("aria-hidden", "true");
   elements.bookDrawer.inert = true;
   elements.toggleBookDrawer.setAttribute("aria-expanded", "false");
@@ -299,8 +303,11 @@ function showScene(persona, assets) {
   state.history = historyStore.load(persona.id);
   elements.archiveView.hidden = true;
   elements.sceneView.hidden = false;
-  elements.sceneView.classList.remove("is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror");
+  elements.sceneView.classList.remove("is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover");
   elements.sceneView.classList.toggle("scene-mirror", persona.id === "magic-mirror");
+  const generatedCoverImage = GENERATED_COVER_IMAGES[persona.id];
+  elements.sceneView.classList.toggle("has-generated-cover", Boolean(generatedCoverImage));
+  elements.sceneView.style.setProperty("--opening-cover-image", generatedCoverImage ? `url("${generatedCoverImage}")` : "none");
   elements.bookDrawer.inert = true;
   state.closing = false;
   const isMirror = persona.id === "magic-mirror";
@@ -372,7 +379,7 @@ function showScene(persona, assets) {
       elements.sceneView.classList.remove("is-book-opening");
       state.openingTimer = null;
       showOpeningLine();
-    }, reducedMotion ? 0 : 3_350);
+    }, reducedMotion ? 0 : 4_350);
   });
   requestAnimationFrame(setupSceneEngines);
   setStatus("等待书写");
@@ -444,10 +451,10 @@ function closeBookToShelf() {
   elements.sceneView.classList.remove("is-book-opening");
   elements.sceneView.classList.remove("is-pinching");
   if (!reducedMotion && state.pageFlip) {
-    state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("bottom"), 180));
-    state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("top"), 1_140));
+    state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("bottom"), 280));
+    state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("top"), 1_500));
   }
-  setTimeout(() => navigateTo("/"), reducedMotion ? 0 : 2_350);
+  setTimeout(() => navigateTo("/"), reducedMotion ? 0 : 2_850);
 }
 
 function setupOpeningFlipbook() {
@@ -472,11 +479,11 @@ function setupOpeningFlipbook() {
     minHeight: 360,
     maxHeight: 750,
     drawShadow: true,
-    flippingTime: 920,
+    flippingTime: 1_280,
     usePortrait: true,
     startZIndex: 1,
     autoSize: true,
-    maxShadowOpacity: 0.72,
+    maxShadowOpacity: 0.58,
     showCover: true,
     mobileScrollSupport: false,
     useMouseEvents: true,
@@ -485,8 +492,8 @@ function setupOpeningFlipbook() {
   state.pageFlip = pageFlip;
   pageFlip.on("init", () => {
     if (state.pageFlip !== pageFlip || state.closing) return;
-    state.flipTimers.push(setTimeout(() => pageFlip.flipNext("top"), 360));
-    state.flipTimers.push(setTimeout(() => pageFlip.flipNext("bottom"), 1_420));
+    state.flipTimers.push(setTimeout(() => pageFlip.flipNext("top"), 520));
+    state.flipTimers.push(setTimeout(() => pageFlip.flipNext("bottom"), 1_950));
   });
   pageFlip.loadFromHTML(pages);
 }
