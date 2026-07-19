@@ -53,7 +53,7 @@ const elements = Object.fromEntries([
   "createBookForm", "closeCreateBook", "customBookTitle", "customPersonaName", "customIdentity",
   "customPersonality", "customOpeningLine", "customBookTone", "customSigil", "createBookMessage",
   "bookDrawer", "toggleBookDrawer", "closeBookDrawer", "activeBookVolume", "activeBookTitle",
-  "activeBookOwner", "pinchHint", "openingSequence", "openingBookSigil", "openingBookTitle",
+  "activeBookOwner", "pinchHint", "openingSequence", "openingFlipbook", "openingBookSigil", "openingBookTitle",
   "openingBookLatin"
 ].map((id) => [id, document.getElementById(id)]));
 
@@ -70,7 +70,9 @@ const state = {
   pinchStart: null,
   edgePullStart: null,
   closing: false,
-  openingTimer: null
+  openingTimer: null,
+  pageFlip: null,
+  flipTimers: []
 };
 
 renderArchive();
@@ -303,10 +305,12 @@ function showScene(persona, assets) {
   if (assets.paper) elements.paperImage.addEventListener("error", showPaperFallback, { once: true });
   requestAnimationFrame(() => {
     elements.sceneView.classList.add("is-revealed", "is-book-opening");
+    setupOpeningFlipbook();
     state.openingTimer = setTimeout(() => {
       elements.sceneView.classList.remove("is-book-opening");
       state.openingTimer = null;
-    }, reducedMotion ? 0 : 2_550);
+      showOpeningLine();
+    }, reducedMotion ? 0 : 3_350);
   });
   requestAnimationFrame(setupSceneEngines);
   setStatus("等待书写");
@@ -370,12 +374,70 @@ function endBookGesture(event) {
 function closeBookToShelf() {
   if (elements.sceneView.hidden || state.closing) return;
   clearTimeout(state.idleTimer);
+  clearFlipTimers();
   state.ink?.setEnabled(false);
   setBookDrawer(false);
   state.closing = true;
   elements.sceneView.classList.add("is-closing-book");
+  elements.sceneView.classList.remove("is-book-opening");
   elements.sceneView.classList.remove("is-pinching");
-  setTimeout(() => navigateTo("/"), reducedMotion ? 0 : 1_450);
+  if (!reducedMotion && state.pageFlip) {
+    state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("bottom"), 180));
+    state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("top"), 1_140));
+  }
+  setTimeout(() => navigateTo("/"), reducedMotion ? 0 : 2_350);
+}
+
+function setupOpeningFlipbook() {
+  clearFlipTimers();
+  if (reducedMotion || !globalThis.St?.PageFlip || !elements.openingFlipbook) return;
+  disposePageFlip();
+
+  const pages = elements.openingFlipbook.querySelectorAll(":scope > .opening-flip-page");
+  if (pages.length < 4) return;
+
+  const pageFlip = new globalThis.St.PageFlip(elements.openingFlipbook, {
+    width: 430,
+    height: 620,
+    size: "stretch",
+    minWidth: 250,
+    maxWidth: 520,
+    minHeight: 360,
+    maxHeight: 750,
+    drawShadow: true,
+    flippingTime: 920,
+    usePortrait: true,
+    startZIndex: 1,
+    autoSize: true,
+    maxShadowOpacity: 0.72,
+    showCover: true,
+    mobileScrollSupport: false,
+    useMouseEvents: true,
+    disableFlipByClick: true
+  });
+  state.pageFlip = pageFlip;
+  pageFlip.on("init", () => {
+    if (state.pageFlip !== pageFlip || state.closing) return;
+    state.flipTimers.push(setTimeout(() => pageFlip.flipNext("top"), 360));
+    state.flipTimers.push(setTimeout(() => pageFlip.flipNext("bottom"), 1_420));
+  });
+  pageFlip.loadFromHTML(pages);
+}
+
+function clearFlipTimers() {
+  for (const timer of state.flipTimers) clearTimeout(timer);
+  state.flipTimers = [];
+}
+
+function disposePageFlip() {
+  if (!state.pageFlip) return;
+  try {
+    state.pageFlip.clear();
+    state.pageFlip.destroy();
+  } catch (error) {
+    console.warn("Page flip cleanup failed", error);
+  }
+  state.pageFlip = null;
 }
 
 function setupSceneEngines() {
@@ -410,24 +472,31 @@ function setupSceneEngines() {
   state.resizeObserver = new ResizeObserver(resize);
   state.resizeObserver.observe(elements.writingSurface);
   resize();
-  if (state.persona.openingLine) {
-    const openingDelay = reducedMotion ? 10 : 2_650;
-    setTimeout(() => {
-      if (!state.reply || state.busy || state.ink?.hasInk()) return;
-      state.reply.show(state.persona.openingLine, {
-        direction: state.assets.writingDirection,
-        color: state.assets.replyInk,
-        fontFamily: replyFontFor(state.persona.openingLine),
-        fontSize: state.assets.replyFontSize || 36,
-        pace: 1.18
-      });
-    }, openingDelay);
+}
+
+function showOpeningLine(attempt = 0) {
+  if (!state.persona?.openingLine || state.busy || state.ink?.hasInk()) return;
+  if (!state.reply) {
+    if (attempt < 3) setTimeout(() => showOpeningLine(attempt + 1), 50);
+    return;
   }
+  state.reply.show(state.persona.openingLine, {
+    direction: state.assets.writingDirection,
+    align: "center",
+    topRatio: 0.08,
+    maxWidthRatio: 0.82,
+    color: state.assets.replyInk,
+    fontFamily: replyFontFor(state.persona.openingLine),
+    fontSize: state.assets.replyFontSize || 36,
+    pace: 1.18
+  });
 }
 
 function teardownScene() {
   clearTimeout(state.idleTimer);
   clearTimeout(state.openingTimer);
+  clearFlipTimers();
+  disposePageFlip();
   state.resizeObserver?.disconnect();
   state.ink?.destroy();
   state.reply?.clear();
@@ -503,6 +572,9 @@ async function commitPage() {
     setStatus(data.status === "needs_clarification" ? "请再写一次" : "正在回信", "busy");
     await state.reply.show(data.reply || "", {
       direction: state.assets.writingDirection,
+      align: "center",
+      topRatio: 0.08,
+      maxWidthRatio: 0.82,
       color: state.assets.replyInk,
       fontFamily: replyFontFor(data.reply),
       fontSize: state.assets.replyFontSize || 36,

@@ -1165,3 +1165,224 @@ body {
   .summoning-ring{width:116vw}
   .pinch-hint{bottom:max(18px,env(safe-area-inset-bottom))}
 }
+
+/* V5 · photoreal archive materials and a true curled-page opening. */
+.archive-view {
+  width:min(1360px,calc(100vw - 30px));
+  padding-top:max(24px,env(safe-area-inset-top));
+}
+.archive-view::before {
+  background:
+    linear-gradient(180deg,rgba(3,2,1,.28),rgba(3,2,1,.04) 42%,rgba(3,2,1,.42)),
+    url("/assets/magic/enchanted-archive.png") center center / cover no-repeat fixed;
+  filter:saturate(.9) contrast(1.04);
+}
+.archive-header {
+  position:relative;
+  z-index:3;
+  padding:18px 22px 24px;
+  border:1px solid rgba(171,133,74,.22);
+  background:linear-gradient(90deg,rgba(8,5,3,.82),rgba(8,5,3,.42) 72%,rgba(8,5,3,.75));
+  box-shadow:0 16px 44px rgba(0,0,0,.38),inset 0 1px rgba(255,232,183,.05);
+  backdrop-filter:blur(8px);
+}
+.archive-header h1 { color:#eadbb2;text-shadow:0 2px 12px #000; }
+.archive-header h1,.archive-intro,.book-title,.book-owner,.writing-heading h2 {
+  font-family:"Songti SC","STSong","Noto Serif CJK SC","ZCOOL XiaoWei",serif;
+}
+.archive-intro { color:#c2b69d; }
+.archive-rule,.archive-footer {
+  position:relative;
+  z-index:3;
+  border-color:rgba(174,137,76,.3);
+  color:#b4a78f;
+  background:rgba(7,4,2,.68);
+  padding-inline:12px;
+}
+.magic-atmosphere,.shelf-candle { display:none !important; }
+.persona-list {
+  min-height:min(64dvh,700px);
+  margin:0;
+  padding:clamp(110px,16vh,220px) clamp(120px,13vw,210px) clamp(54px,8vh,96px);
+  border:0;
+  background:transparent;
+  box-shadow:none;
+  isolation:isolate;
+}
+.persona-list::before,.persona-list::after { display:none; }
+.book-card {
+  flex-basis:clamp(56px,7vw,94px);
+  width:clamp(56px,7vw,94px);
+  min-height:clamp(330px,43vw,520px);
+  filter:drop-shadow(10px 16px 9px rgba(0,0,0,.64));
+}
+.book-card:nth-child(3n + 2) { min-height:clamp(348px,45vw,540px); }
+.book-card:nth-child(4n) { min-height:clamp(316px,41vw,498px); }
+.book-volume {
+  border:0;
+  border-radius:8px 5px 5px 8px;
+  color:#f0dfb2;
+  background:
+    linear-gradient(color-mix(in srgb,var(--cover) 58%,transparent),color-mix(in srgb,var(--cover-dark) 34%,transparent)),
+    url("/assets/magic/antique-leather-spine.png") center center / cover no-repeat;
+  background-blend-mode:color,normal;
+  box-shadow:inset 6px 0 10px rgba(255,226,173,.08),inset -6px 0 12px rgba(0,0,0,.46),5px 6px 0 #aa8b59,10px 12px 16px rgba(0,0,0,.7);
+}
+.book-volume::before,.book-volume::after { display:none; }
+.book-number,.book-latin { color:#d6bb76;text-shadow:0 1px 3px #000; }
+.book-title { color:#f0ddb0;text-shadow:0 2px 4px #000,0 0 10px rgba(0,0,0,.82); }
+.book-owner { color:#dfcfab;text-shadow:0 1px 3px #000; }
+.book-card:hover .book-volume,.book-card:focus-visible .book-volume {
+  border:0;
+  box-shadow:inset 6px 0 10px rgba(255,226,173,.11),inset -6px 0 12px rgba(0,0,0,.4),5px 6px 0 #b49a67,12px 18px 23px rgba(0,0,0,.75),0 0 18px rgba(190,148,70,.14);
+}
+
+.paper-object {
+  background:
+    linear-gradient(rgba(224,191,129,.08),rgba(126,78,34,.08)),
+    url("/assets/magic/blank-parchment.png") center center / cover no-repeat !important;
+  box-shadow:inset 0 0 80px rgba(83,48,19,.16),inset -8px 0 20px rgba(46,24,9,.15),18px 0 38px rgba(0,0,0,.42);
+}
+.paper-object::after {
+  opacity:.34;
+  background:linear-gradient(90deg,rgba(61,34,13,.24),transparent 2.2%,transparent 97.5%,rgba(61,34,13,.18));
+  mix-blend-mode:multiply;
+}
+.book-edge {
+  background:
+    linear-gradient(90deg,rgba(255,255,255,.07),transparent 18%,rgba(0,0,0,.42)),
+    url("/assets/magic/antique-leather-spine.png") center / cover no-repeat;
+  background-blend-mode:normal,multiply;
+}
+
+.opening-sequence {
+  place-items:center;
+  background:
+    radial-gradient(ellipse at 50% 58%,rgba(126,88,41,.22),transparent 42%),
+    linear-gradient(rgba(3,2,1,.58),rgba(2,1,1,.94)),
+    url("/assets/magic/enchanted-archive.png") center / cover no-repeat;
+  perspective:none;
+}
+.opening-book-shadow {
+  position:absolute;
+  left:50%;
+  top:77%;
+  width:min(72vw,820px);
+  height:8%;
+  border-radius:50%;
+  background:rgba(0,0,0,.78);
+  filter:blur(20px);
+  transform:translateX(-50%);
+}
+.opening-book-stage {
+  position:relative;
+  z-index:2;
+  width:min(88vw,1040px);
+  filter:drop-shadow(0 34px 26px rgba(0,0,0,.72));
+}
+.opening-flipbook { width:100%; }
+.opening-flipbook.stf__parent { position:relative;display:block;box-sizing:border-box;transform:translateZ(0);touch-action:pan-y; }
+.opening-flipbook .stf__wrapper { position:relative;width:100%;box-sizing:border-box; }
+.opening-flipbook .stf__block { position:absolute;inset:0;width:100%;height:100%;box-sizing:border-box;perspective:2000px; }
+.opening-flipbook .stf__item { display:none;position:absolute;transform-style:preserve-3d; }
+.opening-flipbook .stf__outerShadow,.opening-flipbook .stf__innerShadow,
+.opening-flipbook .stf__hardShadow,.opening-flipbook .stf__hardInnerShadow { position:absolute;left:0;top:0; }
+.opening-flipbook .stf__wrapper { overflow:visible !important; }
+.opening-flipbook .stf__block { filter:none; }
+.opening-flip-page {
+  overflow:hidden;
+  border:1px solid rgba(82,47,19,.38);
+  background:#d9ba7c;
+}
+.pageflip-cover-face,.pageflip-parchment-face {
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+}
+.pageflip-cover-face {
+  display:grid;
+  grid-template-rows:1fr auto auto 1fr;
+  place-items:center;
+  padding:13%;
+  color:#e3ca84;
+  background:
+    linear-gradient(color-mix(in srgb,var(--book-cover) 52%,transparent),rgba(20,9,4,.2)),
+    url("/assets/magic/antique-leather-spine.png") center / cover no-repeat;
+  background-blend-mode:color,normal;
+  box-shadow:inset 0 0 0 2px rgba(212,174,91,.72),inset 0 0 0 11px rgba(33,16,6,.62),inset 0 0 0 13px color-mix(in srgb,var(--book-accent),transparent 20%);
+}
+.pageflip-cover-face::after {
+  content:"";
+  position:absolute;
+  inset:7%;
+  border:1px solid color-mix(in srgb,var(--book-accent),transparent 24%);
+  box-shadow:inset 0 0 0 5px rgba(16,7,3,.3);
+  pointer-events:none;
+}
+.pageflip-cover-face .opening-cover-sigil {
+  grid-row:2;
+  width:clamp(76px,10vw,118px);
+  border-color:color-mix(in srgb,var(--book-accent),white 10%);
+  background:rgba(20,9,3,.34);
+  box-shadow:0 0 0 6px rgba(15,7,3,.5),0 0 0 7px var(--book-accent),0 9px 20px rgba(0,0,0,.54);
+}
+.pageflip-cover-face strong {
+  grid-row:3;
+  margin-top:clamp(20px,4vh,38px);
+  font-size:clamp(26px,4.6vw,54px);
+  font-weight:400;
+  line-height:1.25;
+  letter-spacing:.12em;
+  text-align:center;
+  text-shadow:0 3px 5px #000;
+}
+.pageflip-cover-face small {
+  position:absolute;
+  bottom:10%;
+  z-index:2;
+  color:#d8c08a;
+  font:clamp(10px,1.2vw,13px) "IM FELL English",serif;
+  letter-spacing:.17em;
+  text-align:center;
+  text-shadow:0 2px 3px #000;
+}
+.pageflip-back-cover::after { display:none; }
+.pageflip-parchment-face {
+  display:grid;
+  place-items:center;
+  color:rgba(70,43,22,.45);
+  background:
+    linear-gradient(rgba(232,203,145,.04),rgba(108,65,29,.05)),
+    url("/assets/magic/blank-parchment.png") center / cover no-repeat;
+  box-shadow:inset 0 0 54px rgba(78,43,16,.2);
+  font:clamp(18px,2vw,28px) "IM FELL English",serif;
+  letter-spacing:.18em;
+}
+.pageflip-parchment-mark { color:rgba(87,52,24,.22);font-size:clamp(56px,8vw,108px); }
+.scene-view.is-book-opening .opening-sequence { visibility:visible;animation:realOpeningVeil 3.35s ease both; }
+.scene-view.is-book-opening .opening-book-stage { animation:realBookArrive 3.28s cubic-bezier(.18,.74,.15,1) both; }
+.scene-view.is-closing-book .opening-sequence { visibility:visible;animation:realClosingVeil 2.35s ease both; }
+.scene-view.is-closing-book .opening-book-stage { animation:realBookLeave 2.32s cubic-bezier(.52,.02,.28,1) both; }
+.scene-view.is-book-opening .paper-object { animation:realParchmentReveal 3.35s cubic-bezier(.2,.72,.15,1) both; }
+.scene-view.is-closing-book .paper-object { animation:realParchmentClose 2.35s cubic-bezier(.52,.02,.28,1) both; }
+
+@keyframes realOpeningVeil { 0%{opacity:0} 8%,82%{opacity:1} 100%{opacity:0;visibility:hidden} }
+@keyframes realBookArrive { 0%{opacity:0;transform:translateY(24vh);filter:blur(5px)} 14%{opacity:1} 35%,84%{opacity:1;transform:translateY(0);filter:none} 100%{opacity:0;transform:translateY(-2vh);filter:blur(1px)} }
+@keyframes realClosingVeil { 0%{opacity:0} 8%,88%{opacity:1} 100%{opacity:0;visibility:hidden} }
+@keyframes realBookLeave { 0%,76%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(28vh) scale(.24)} }
+@keyframes realParchmentReveal { 0%,68%{opacity:0;filter:brightness(.45)} 100%{opacity:1;filter:none} }
+@keyframes realParchmentClose { 0%{opacity:1} 24%,100%{opacity:0} }
+
+@media (max-width:900px) {
+  .archive-view { width:100%;padding-inline:14px; }
+  .archive-header { margin-inline:0; }
+  .persona-list { min-height:66dvh;padding:clamp(100px,14vh,180px) clamp(52px,9vw,100px) clamp(52px,7vh,84px); }
+  .opening-book-stage { width:min(94vw,880px); }
+}
+@media (max-width:720px) {
+  .persona-list { min-height:60dvh;padding:100px 22px 54px;gap:2px; }
+  .book-card { flex-basis:clamp(42px,10.8vw,68px);width:clamp(42px,10.8vw,68px);min-width:38px;min-height:clamp(285px,78vw,410px); }
+  .book-card:nth-child(3n + 2) { min-height:clamp(300px,82vw,430px); }
+  .book-card:nth-child(4n) { min-height:clamp(270px,74vw,395px); }
+  .pageflip-cover-face strong { font-size:clamp(22px,7vw,38px); }
+}

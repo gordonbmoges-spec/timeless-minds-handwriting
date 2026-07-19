@@ -119,7 +119,7 @@ docs/                       产品设计和实施计划
 
 对话历史、自定义书籍、人物回复偏好和长期记忆默认只保存在当前浏览器。启用 AI 后，手写裁剪图、人物资料、近期对话和必要记忆会发送到配置的模型服务商。项目本身不包含用户账号、云端历史数据库、广告或分析 SDK。
 
-历史肖像来源、作者、处理方式和权利状态记录在 [人物素材来源](public/assets/personas/SOURCES.md)。代码使用 MIT License；字体、历史肖像和生成素材的许可边界见 [ASSETS-LICENSE.md](ASSETS-LICENSE.md)。
+历史肖像来源、作者、处理方式和权利状态记录在 [人物素材来源](public/assets/personas/SOURCES.md)，AI 生成的真实书房、皮革和羊皮纸材质记录在 [魔法材质来源](public/assets/magic/SOURCES.md)。代码使用 MIT License；字体、历史肖像、生成素材和第三方翻页库的许可边界见 [ASSETS-LICENSE.md](ASSETS-LICENSE.md)。
 
 ## 部署
 
@@ -127,4 +127,4 @@ docs/                       产品设计和实施计划
 
 ## 致谢
 
-产品机制参考了 `MaximeRivest/riddle` 与 `Trentct/Riddle-iPad` 的手写交互思路，并参考用户提供的抖音演示视频对“停笔吸墨、逐笔回信、全屏纸面”的节奏做了重新设计；书脊书架、双指合书、人物系统、前后端实现和素材处理均为本项目的独立实现。
+产品机制参考了 [MaximeRivest/riddle](https://github.com/MaximeRivest/riddle) 与 [Trentct/Riddle-iPad](https://github.com/Trentct/Riddle-iPad) 的手写交互思路，并参考用户提供的抖音演示视频对“停笔吸墨、逐笔回信、全屏纸面”的节奏做了重新设计；真实纸张卷曲由 MIT 授权的 [StPageFlip](https://github.com/Nodlik/StPageFlip) 提供。书脊书架、双指合书、人物系统、前后端实现和素材处理均为本项目的独立实现。

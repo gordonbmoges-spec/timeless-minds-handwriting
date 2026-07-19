@@ -58,15 +58,31 @@
       <section class="scene-view" id="sceneView" hidden aria-label="人物手写场景">
         <div class="scene-backdrop" id="sceneBackdrop" aria-hidden="true"></div>
         <div class="opening-sequence" id="openingSequence" aria-hidden="true">
-          <div class="summoning-ring"><span>✦</span><span>☾</span><span>✧</span><span>⌁</span></div>
-          <div class="opening-book">
-            <div class="opening-page-stack"></div>
-            <div class="opening-leaf leaf-one"></div>
-            <div class="opening-leaf leaf-two"></div>
-            <div class="opening-cover">
-              <span class="opening-cover-sigil" id="openingBookSigil"></span>
-              <strong id="openingBookTitle"></strong>
-              <small id="openingBookLatin"></small>
+          <div class="opening-book-shadow"></div>
+          <div class="opening-book-stage">
+            <div class="opening-flipbook" id="openingFlipbook">
+              <div class="opening-flip-page opening-flip-cover" data-density="hard">
+                <div class="pageflip-cover-face">
+                  <span class="opening-cover-sigil" id="openingBookSigil"></span>
+                  <strong id="openingBookTitle"></strong>
+                  <small id="openingBookLatin"></small>
+                </div>
+              </div>
+              <div class="opening-flip-page opening-flip-paper">
+                <div class="pageflip-parchment-face"><span>Ex Libris</span></div>
+              </div>
+              <div class="opening-flip-page opening-flip-paper">
+                <div class="pageflip-parchment-face pageflip-parchment-mark"><span>✦</span></div>
+              </div>
+              <div class="opening-flip-page opening-flip-paper">
+                <div class="pageflip-parchment-face"></div>
+              </div>
+              <div class="opening-flip-page opening-flip-paper">
+                <div class="pageflip-parchment-face"></div>
+              </div>
+              <div class="opening-flip-page opening-flip-cover" data-density="hard">
+                <div class="pageflip-cover-face pageflip-back-cover"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -271,6 +287,7 @@
       </section>
     </dialog>
 
+    <script src="/vendor/page-flip.browser.js"></script>
     <script src="/app.js" type="module"></script>
   </body>
 </html>

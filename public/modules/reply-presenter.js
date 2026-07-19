@@ -24,6 +24,27 @@ export function advanceReplyFade(state, progress) {
   return { current: { ...state.current, alpha: 1 - value, fading: true } };
 }
 
+export function wrapReplyLines(text, maxWidth, measureText) {
+  const lines = [];
+  let line = "";
+  for (const char of Array.from(String(text || ""))) {
+    if (char === "\n") {
+      lines.push(line);
+      line = "";
+      continue;
+    }
+    const candidate = `${line}${char}`;
+    if (line && measureText(candidate) > maxWidth) {
+      lines.push(line);
+      line = char;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line || !lines.length) lines.push(line);
+  return lines;
+}
+
 export class ReplyPresenter {
   constructor(canvas, options = {}) {
     this.canvas = canvas;
@@ -63,7 +84,10 @@ export class ReplyPresenter {
       color: options.color || "#2f302c",
       fontFamily: options.fontFamily || '"STKaiti", "KaiTi", serif',
       fontSize: clamp(Number(options.fontSize) || 38, 24, 56),
-      pace: clamp(Number(options.pace) || 1, 0.65, 1.6)
+      pace: clamp(Number(options.pace) || 1, 0.65, 1.6),
+      align: options.align || "center",
+      topRatio: clamp(Number(options.topRatio) || 0.08, 0.03, 0.3),
+      maxWidthRatio: clamp(Number(options.maxWidthRatio) || 0.82, 0.45, 0.94)
     };
     this.state = showSingleReply(this.state, block);
     const token = ++this.animationToken;
@@ -153,35 +177,38 @@ export class ReplyPresenter {
   }
 
   drawVertical(block) {
-    const chars = Array.from(block.text).slice(0, block.reveal);
+    const allChars = Array.from(block.text);
+    const chars = allChars.slice(0, block.reveal);
     const stepY = block.fontSize * 1.18;
     const stepX = block.fontSize * 1.34;
-    const rows = Math.max(1, Math.floor((this.height - 40) / stepY));
-    const right = this.width - block.fontSize - 18;
+    const top = Math.max(18, this.height * block.topRatio);
+    const rows = Math.max(1, Math.floor((this.height - top - 24) / stepY));
+    const columnCount = Math.max(1, Math.ceil(allChars.length / rows));
+    const right = this.width / 2 + ((columnCount - 1) * stepX) / 2;
+    this.ctx.textAlign = "center";
     chars.forEach((char, index) => {
       const column = Math.floor(index / rows);
       const row = index % rows;
-      this.ctx.fillText(char, right - column * stepX, 20 + row * stepY);
+      this.ctx.fillText(char, right - column * stepX, top + row * stepY);
     });
   }
 
   drawHorizontal(block) {
-    const visible = Array.from(block.text).slice(0, block.reveal);
     const lineHeight = block.fontSize * 1.25;
-    const maxWidth = this.width - 40;
-    let line = "";
-    let lineIndex = 0;
-    for (const char of visible) {
-      const candidate = `${line}${char}`;
-      if (line && this.ctx.measureText(candidate).width > maxWidth) {
-        this.ctx.fillText(line, 20, 20 + lineIndex * lineHeight);
-        line = char;
-        lineIndex += 1;
-      } else {
-        line = candidate;
-      }
+    const maxWidth = this.width * block.maxWidthRatio;
+    const top = Math.max(18, this.height * block.topRatio);
+    const lines = wrapReplyLines(block.text, maxWidth, (value) => this.ctx.measureText(value).width);
+    let remaining = block.reveal;
+    this.ctx.textAlign = "left";
+    for (let index = 0; index < lines.length && remaining > 0; index += 1) {
+      const fullLine = lines[index];
+      const lineChars = Array.from(fullLine);
+      const visibleLine = lineChars.slice(0, remaining).join("");
+      const fullLineWidth = this.ctx.measureText(fullLine).width;
+      const x = block.align === "center" ? (this.width - fullLineWidth) / 2 : (this.width - maxWidth) / 2;
+      this.ctx.fillText(visibleLine, x, top + index * lineHeight);
+      remaining -= lineChars.length;
     }
-    if (line) this.ctx.fillText(line, 20, 20 + lineIndex * lineHeight);
   }
 }
 

@@ -5,7 +5,8 @@ import {
   advanceReplyFade,
   createReplyState,
   showSingleReply,
-  startReplyFade
+  startReplyFade,
+  wrapReplyLines
 } from "../public/modules/reply-presenter.js";
 
 test("showing a reply replaces the previous reply", () => {
@@ -31,4 +32,15 @@ test("starting fade twice keeps the same single fade", () => {
   const fading = startReplyFade(state);
   assert.equal(fading.current.fading, true);
   assert.equal(fading.current.text, "answer");
+});
+
+test("reply lines wrap to a centered-width block without losing characters", () => {
+  const lines = wrapReplyLines("魔镜会在纸页中央回答", 5, (value) => Array.from(value).length);
+  assert.deepEqual(lines, ["魔镜会在纸", "页中央回答"]);
+  assert.equal(lines.join(""), "魔镜会在纸页中央回答");
+});
+
+test("reply line wrapping preserves explicit line breaks", () => {
+  const lines = wrapReplyLines("first\nsecond", 20, (value) => value.length);
+  assert.deepEqual(lines, ["first", "second"]);
 });
