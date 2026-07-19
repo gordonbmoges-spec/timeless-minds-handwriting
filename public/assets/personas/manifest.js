@@ -84,23 +84,26 @@ export const PERSONA_ASSETS = Object.freeze({
     replyFontSize: 34
   },
   "magic-mirror": {
-    background: null,
-    backgroundCss: "radial-gradient(circle at 50% 38%, rgba(207,222,224,.28), transparent 23%), linear-gradient(135deg, #10191d 0%, #050708 52%, #171012 100%)",
+    background: "/assets/personas/magic-mirror/background.webp",
+    backgroundCss: null,
+    backgroundFocus: "50% 50%",
     paper: null,
     portrait: null,
     sigil: "✦",
     sceneLocation: "THE QUEEN'S CHAMBER · AFTER MIDNIGHT",
     sceneTitle: "魔镜问答",
     paperAspectRatio: 0.78,
-    writingArea: { x: 0.13, y: 0.13, width: 0.74, height: 0.74 },
-    paperBackground: "radial-gradient(ellipse at 50% 42%, rgba(230,240,238,.2), rgba(60,75,78,.2) 47%, rgba(5,8,9,.82) 78%), linear-gradient(145deg, #718084, #11191b)",
-    paperBorder: "14px ridge #a99b7c",
+    writingArea: { x: 0.22, y: 0.18, width: 0.56, height: 0.62 },
+    paperBackground: "transparent",
+    paperBorder: "0",
     coverColor: "#273237",
     coverAccent: "#d2c39b",
     ink: "#d9e3df",
     replyInk: "#f0e6c6",
     writingDirection: "horizontal-tb",
-    replyFontSize: 35
+    replyFontSize: 38,
+    replyTopRatio: 0.36,
+    replyMaxWidthRatio: 0.72
   },
   "tom-riddle": {
     background: null,

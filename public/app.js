@@ -12,6 +12,7 @@ const API_SETTINGS_KEY = "ink-diary-api-settings-v1";
 const REPLY_PREFERENCE_PREFIX = "minds-archive-reply-preference-v1-";
 const PERSONA_MEMORY_PREFIX = "minds-archive-memory-v1-";
 const IDLE_SEND_MS = 1_800;
+const HISTORICAL_PERSONA_IDS = new Set(["confucius", "socrates", "da-vinci", "shakespeare", "jung", "einstein"]);
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const historyStore = createHistoryStore();
 const customBookStore = createCustomBookStore();
@@ -83,15 +84,29 @@ registerLocalAppShell();
 
 function renderArchive() {
   const books = allPersonas();
-  elements.personaList.replaceChildren(...books.map((persona, index) => {
+  const entries = books.map((persona, index) => {
     const assets = getAvailableAssets(persona);
     const available = Boolean(assets);
     const button = document.createElement("button");
-    button.className = `book-card book-${persona.bookTone || "archive"}`;
+    const isMirror = persona.id === "magic-mirror";
+    const displayTitle = HISTORICAL_PERSONA_IDS.has(persona.id) ? persona.name : (persona.bookTitle || persona.name);
+    button.className = isMirror ? "mirror-card archive-entry" : `book-card archive-entry book-${persona.bookTone || "archive"}`;
     button.type = "button";
     button.dataset.personaId = persona.id;
     button.setAttribute("aria-disabled", String(!available));
-    button.setAttribute("aria-label", `打开《${persona.bookTitle || persona.name}》，与${persona.name}对话`);
+    button.setAttribute("aria-label", isMirror ? "唤醒魔镜，与魔镜对话" : `打开《${displayTitle}》，与${persona.name}对话`);
+
+    if (isMirror) {
+      const label = document.createElement("span");
+      label.className = "mirror-entry-label";
+      label.innerHTML = "魔镜<small>轻触唤醒</small>";
+      button.append(label);
+      button.addEventListener("click", () => {
+        if (!available) return;
+        openBook(persona.id, button);
+      });
+      return button;
+    }
 
     const volume = document.createElement("span");
     volume.className = "book-volume";
@@ -115,7 +130,7 @@ function renderArchive() {
 
     const title = document.createElement("strong");
     title.className = "book-title";
-    title.textContent = persona.bookTitle || persona.name;
+    title.textContent = displayTitle;
 
     const latin = document.createElement("span");
     latin.className = "book-latin";
@@ -136,12 +151,18 @@ function renderArchive() {
       openBook(persona.id, button);
     });
     return button;
-  }));
+  });
+
+  const mirror = entries.find((entry) => entry.dataset.personaId === "magic-mirror");
+  const shelfRow = document.createElement("div");
+  shelfRow.className = "book-shelf-row";
+  shelfRow.append(...entries.filter((entry) => entry !== mirror));
+  elements.personaList.replaceChildren(...(mirror ? [mirror] : []), shelfRow);
 }
 
 function openBook(personaId, button) {
   if (button.classList.contains("is-opening")) return;
-  const books = [...elements.personaList.querySelectorAll(".book-card")];
+  const books = [...elements.personaList.querySelectorAll(".archive-entry")];
   const selectedIndex = Math.max(0, books.indexOf(button));
   elements.personaList.classList.add("is-selecting-book");
   books.forEach((book, index) => {
@@ -151,7 +172,7 @@ function openBook(personaId, button) {
   });
   button.classList.add("is-opening");
   elements.archiveView.classList.add("is-opening-book");
-  const delay = reducedMotion ? 0 : 1_720;
+  const delay = reducedMotion ? 0 : personaId === "magic-mirror" ? 1_260 : 1_720;
   setTimeout(() => {
     navigateTo(personaPath(personaId));
   }, delay);
@@ -160,7 +181,7 @@ function openBook(personaId, button) {
 function resetArchiveSelection() {
   elements.archiveView.classList.remove("is-opening-book");
   elements.personaList.classList.remove("is-selecting-book");
-  for (const book of elements.personaList.querySelectorAll(".book-card")) {
+  for (const book of elements.personaList.querySelectorAll(".archive-entry")) {
     book.classList.remove("is-opening", "is-receding");
     book.style.removeProperty("--recede-delay");
   }
@@ -242,7 +263,7 @@ function showArchive() {
   state.assets = null;
   elements.sceneView.hidden = true;
   elements.archiveView.hidden = false;
-  elements.sceneView.classList.remove("is-revealed", "is-book-opening", "is-closing-book", "is-pinching", "drawer-open");
+  elements.sceneView.classList.remove("is-revealed", "is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror");
   elements.bookDrawer.setAttribute("aria-hidden", "true");
   elements.bookDrawer.inert = true;
   elements.toggleBookDrawer.setAttribute("aria-expanded", "false");
@@ -257,9 +278,13 @@ function showScene(persona, assets) {
   state.history = historyStore.load(persona.id);
   elements.archiveView.hidden = true;
   elements.sceneView.hidden = false;
-  elements.sceneView.classList.remove("is-book-opening", "is-closing-book", "is-pinching", "drawer-open");
+  elements.sceneView.classList.remove("is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror");
+  elements.sceneView.classList.toggle("scene-mirror", persona.id === "magic-mirror");
   elements.bookDrawer.inert = true;
   state.closing = false;
+  const isMirror = persona.id === "magic-mirror";
+  elements.backToArchive.textContent = isMirror ? "离开魔镜，返回藏书阁" : "合上并放回书架";
+  elements.pinchHint.textContent = isMirror ? "双指向内收拢 · 离开魔镜" : "双指向内收拢 · 合上书籍";
   document.title = `${persona.bookTitle || persona.name} · 会回应的藏书阁`;
 
   elements.sceneBackdrop.style.backgroundImage = assets.background ? `url("${assets.background}")` : assets.backgroundCss;
@@ -406,6 +431,10 @@ function closeBookToShelf() {
 
 function setupOpeningFlipbook() {
   clearFlipTimers();
+  if (state.persona?.id === "magic-mirror") {
+    disposePageFlip();
+    return;
+  }
   if (reducedMotion || !globalThis.St?.PageFlip || !elements.openingFlipbook) return;
   disposePageFlip();
   resetFlipbookMarkup();
@@ -513,8 +542,8 @@ function showOpeningLine(attempt = 0) {
   state.reply.show(state.persona.openingLine, {
     direction: state.assets.writingDirection,
     align: "center",
-    topRatio: 0.08,
-    maxWidthRatio: 0.82,
+    topRatio: state.assets.replyTopRatio || 0.08,
+    maxWidthRatio: state.assets.replyMaxWidthRatio || 0.82,
     color: state.assets.replyInk,
     fontFamily: replyFontFor(state.persona.openingLine),
     fontSize: state.assets.replyFontSize || 36,
@@ -603,8 +632,8 @@ async function commitPage() {
     await state.reply.show(data.reply || "", {
       direction: state.assets.writingDirection,
       align: "center",
-      topRatio: 0.08,
-      maxWidthRatio: 0.82,
+      topRatio: state.assets.replyTopRatio || 0.08,
+      maxWidthRatio: state.assets.replyMaxWidthRatio || 0.82,
       color: state.assets.replyInk,
       fontFamily: replyFontFor(data.reply),
       fontSize: state.assets.replyFontSize || 36,
