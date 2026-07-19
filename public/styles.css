@@ -2298,3 +2298,124 @@ body {
   width:89%!important;
   height:92%!important;
 }
+
+/* V13 · one continuous book handoff, plus shelf-safe placement at every ratio. */
+@media (min-aspect-ratio:1/1) {
+  .persona-list .shelf-upper { right:24%;left:27%; }
+  .persona-list .shelf-lower { right:24%;left:50%; }
+  .mirror-card {
+    left:27.6%;
+    width:14.6vw;
+    max-width:205px;
+    height:38vh;
+    max-height:285px;
+  }
+}
+@media (min-aspect-ratio:1/1) and (max-aspect-ratio:4/3) {
+  .persona-list .shelf-lower { bottom:34.2vh; }
+}
+@media (min-aspect-ratio:4/3) {
+  .persona-list .shelf-lower { bottom:calc(36.111vh - 3.125vw); }
+}
+
+.flat-cover-card.is-portal-source,
+.flat-cover-card.is-portal-source.is-opening {
+  opacity:0!important;
+  animation:none!important;
+  pointer-events:none;
+}
+.book-transition-portal {
+  position:fixed;
+  z-index:100;
+  overflow:visible;
+  pointer-events:none;
+  transform:translate3d(0,0,0) scale(1);
+  transform-origin:0 0;
+  will-change:transform,opacity,filter;
+  transition:opacity .28s ease;
+}
+.book-transition-portal img {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  filter:drop-shadow(5px 7px 5px rgba(0,0,0,.72)) brightness(.78) saturate(.9) contrast(1.04);
+}
+.book-transition-portal strong {
+  position:absolute;
+  z-index:2;
+  right:auto;
+  bottom:7%;
+  left:50%;
+  width:max-content;
+  max-width:86%;
+  padding:3px 8px 4px;
+  border:1px solid rgba(211,177,104,.34);
+  border-radius:2px;
+  color:#ead18b;
+  background:rgba(10,6,3,.66);
+  font:400 clamp(9px,.82vw,12px)/1.15 "Songti SC","STSong","ZCOOL XiaoWei",serif;
+  letter-spacing:.08em;
+  text-align:center;
+  text-shadow:0 1px 2px #000;
+  white-space:nowrap;
+  transform:translateX(-50%);
+  transform-origin:50% 100%;
+}
+.book-transition-portal.is-travelling {
+  animation:bookPortalTravel 2.15s linear both;
+}
+.book-transition-portal.is-travelling strong {
+  animation:bookPortalLabelGrow 2.15s linear both;
+}
+.book-transition-portal.is-handing-off { opacity:0; }
+@keyframes bookPortalTravel {
+  0% {
+    filter:none;
+    transform:translate3d(0,0,0) scale(1);
+    animation-timing-function:cubic-bezier(.22,.02,.34,1);
+  }
+  22% {
+    filter:drop-shadow(7px 10px 7px rgba(0,0,0,.72));
+    transform:translate3d(0,-6px,0) scale(1.03);
+    animation-timing-function:cubic-bezier(.18,.72,.14,1);
+  }
+  100% {
+    filter:drop-shadow(24px 32px 20px rgba(0,0,0,.62));
+    transform:translate3d(var(--portal-x),var(--portal-y),0) scale(var(--portal-scale));
+  }
+}
+@keyframes bookPortalLabelGrow {
+  0%,22% { font-size:clamp(9px,.82vw,12px); }
+  100% { font-size:var(--portal-label-end); }
+}
+
+.scene-view.is-handoff-opening.is-book-opening .opening-sequence {
+  visibility:visible;
+  background:
+    linear-gradient(rgba(2,1,1,.14),rgba(2,1,1,.56)),
+    url("/assets/magic/archive-with-mirror.webp") center / cover no-repeat;
+  animation:handoffOpeningVeil 4.35s ease both!important;
+}
+.scene-view.is-handoff-opening.is-book-opening .opening-book-stage {
+  animation:handoffBookStage 4.3s cubic-bezier(.18,.74,.15,1) both!important;
+}
+.scene-view.is-handoff-opening.is-book-opening .opening-book-shadow {
+  animation:handoffBookShadow 4.3s ease both!important;
+}
+@keyframes handoffOpeningVeil {
+  0%,82% { opacity:1;visibility:visible; }
+  100% { opacity:0;visibility:hidden; }
+}
+@keyframes handoffBookStage {
+  0%,9% { opacity:0;filter:none;transform:translateX(-25%); }
+  13%,38% { opacity:1;filter:none;transform:translateX(-25%); }
+  64%,88% { opacity:1;filter:none;transform:translateX(0); }
+  100% { opacity:0;filter:blur(.6px);transform:translateX(0) translateY(-1.5vh) scale(1.025); }
+}
+@keyframes handoffBookShadow {
+  0%,12% { opacity:0;transform:translateX(-75%) scale(.52); }
+  28%,88% { opacity:1;transform:translateX(-50%) scale(1); }
+  100% { opacity:0;transform:translateX(-50%) scale(1.08); }
+}

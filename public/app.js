@@ -83,7 +83,9 @@ const state = {
   closing: false,
   openingTimer: null,
   pageFlip: null,
-  flipTimers: []
+  flipTimers: [],
+  bookPortal: null,
+  bookPortalTimers: []
 };
 
 renderArchive();
@@ -189,6 +191,8 @@ function renderArchive() {
 
 function openBook(personaId, button) {
   if (button.classList.contains("is-opening")) return;
+  const persona = findAvailablePersona(personaId);
+  const hasBookPortal = !reducedMotion && Boolean(persona) && createBookTransitionPortal(button, persona);
   const books = [...elements.personaList.querySelectorAll(".archive-entry")];
   const selectedIndex = Math.max(0, books.indexOf(button));
   elements.personaList.classList.add("is-selecting-book");
@@ -199,10 +203,66 @@ function openBook(personaId, button) {
   });
   button.classList.add("is-opening");
   elements.archiveView.classList.add("is-opening-book");
-  const delay = reducedMotion ? 0 : personaId === "magic-mirror" ? 1_260 : 1_720;
+  const delay = reducedMotion ? 0 : personaId === "magic-mirror" ? 1_260 : hasBookPortal ? 1_550 : 1_720;
   setTimeout(() => {
     navigateTo(personaPath(personaId));
   }, delay);
+}
+
+function createBookTransitionPortal(button, persona) {
+  const image = button.querySelector(".flat-cover-image");
+  if (!image) return false;
+  clearBookTransitionPortal();
+
+  const rect = button.getBoundingClientRect();
+  if (!rect.width || !rect.height) return false;
+  const ratio = rect.width / rect.height;
+  const targetWidth = Math.min(500, innerWidth * 0.5, innerHeight * 0.9 * ratio);
+  const targetHeight = targetWidth / ratio;
+  const targetLeft = (innerWidth - targetWidth) / 2;
+  const targetTop = (innerHeight - targetHeight) / 2;
+  const scale = targetWidth / rect.width;
+
+  const portal = document.createElement("div");
+  portal.className = "book-transition-portal";
+  portal.setAttribute("aria-hidden", "true");
+  portal.style.left = `${rect.left}px`;
+  portal.style.top = `${rect.top}px`;
+  portal.style.width = `${rect.width}px`;
+  portal.style.height = `${rect.height}px`;
+  portal.style.setProperty("--portal-x", `${targetLeft - rect.left}px`);
+  portal.style.setProperty("--portal-y", `${targetTop - rect.top}px`);
+  portal.style.setProperty("--portal-scale", String(scale));
+  portal.style.setProperty("--portal-label-end", `${Math.max(6.5, 42 / scale)}px`);
+
+  const cover = document.createElement("img");
+  cover.src = image.currentSrc || image.src;
+  cover.alt = "";
+  const title = document.createElement("strong");
+  title.textContent = persona.name;
+  portal.append(cover, title);
+  document.body.append(portal);
+  state.bookPortal = portal;
+  button.classList.add("is-portal-source");
+  requestAnimationFrame(() => portal.classList.add("is-travelling"));
+  return true;
+}
+
+function clearBookTransitionPortal() {
+  for (const timer of state.bookPortalTimers) clearTimeout(timer);
+  state.bookPortalTimers = [];
+  state.bookPortal?.remove();
+  state.bookPortal = null;
+  for (const source of elements.personaList.querySelectorAll(".is-portal-source")) {
+    source.classList.remove("is-portal-source");
+  }
+}
+
+function handOffBookTransitionPortal() {
+  if (!state.bookPortal) return;
+  const portal = state.bookPortal;
+  state.bookPortalTimers.push(setTimeout(() => portal.classList.add("is-handing-off"), 500));
+  state.bookPortalTimers.push(setTimeout(clearBookTransitionPortal, 840));
 }
 
 function resetArchiveSelection() {
@@ -285,12 +345,13 @@ function handleRoute() {
 
 function showArchive() {
   teardownScene();
+  clearBookTransitionPortal();
   resetArchiveSelection();
   state.persona = null;
   state.assets = null;
   elements.sceneView.hidden = true;
   elements.archiveView.hidden = false;
-  elements.sceneView.classList.remove("is-revealed", "is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover");
+  elements.sceneView.classList.remove("is-revealed", "is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover", "is-handoff-opening");
   elements.bookDrawer.setAttribute("aria-hidden", "true");
   elements.bookDrawer.inert = true;
   elements.toggleBookDrawer.setAttribute("aria-expanded", "false");
@@ -299,14 +360,16 @@ function showArchive() {
 }
 
 function showScene(persona, assets) {
+  const hasBookHandoff = Boolean(state.bookPortal);
   teardownScene();
   state.persona = persona;
   state.assets = assets;
   state.history = historyStore.load(persona.id);
   elements.archiveView.hidden = true;
   elements.sceneView.hidden = false;
-  elements.sceneView.classList.remove("is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover");
+  elements.sceneView.classList.remove("is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover", "is-handoff-opening");
   elements.sceneView.classList.toggle("scene-mirror", persona.id === "magic-mirror");
+  elements.sceneView.classList.toggle("is-handoff-opening", hasBookHandoff);
   const generatedCoverImage = GENERATED_COVER_IMAGES[persona.id];
   elements.sceneView.classList.toggle("has-generated-cover", Boolean(generatedCoverImage));
   elements.sceneView.style.setProperty("--opening-cover-image", generatedCoverImage ? `url("${generatedCoverImage}")` : "none");
@@ -377,8 +440,9 @@ function showScene(persona, assets) {
   requestAnimationFrame(() => {
     elements.sceneView.classList.add("is-revealed", "is-book-opening");
     setupOpeningFlipbook();
+    if (hasBookHandoff) handOffBookTransitionPortal();
     state.openingTimer = setTimeout(() => {
-      elements.sceneView.classList.remove("is-book-opening");
+      elements.sceneView.classList.remove("is-book-opening", "is-handoff-opening");
       state.openingTimer = null;
       showOpeningLine();
     }, reducedMotion ? 0 : 4_350);

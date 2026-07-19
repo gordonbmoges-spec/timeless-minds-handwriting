@@ -53,3 +53,15 @@ test("ships a boundaryless panoramic parchment and removes writing-scene labels"
   assert.match(app, /elements\.activeBookTitle\.textContent = persona\.name;/);
   assert.match(app, /elements\.openingBookTitle\.textContent = persona\.name;/);
 });
+
+test("keeps the selected cover alive through the shelf-to-page handoff", async () => {
+  const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(app, /function createBookTransitionPortal\(/);
+  assert.match(app, /hasBookPortal \? 1_550 : 1_720/);
+  assert.match(app, /elements\.sceneView\.classList\.toggle\("is-handoff-opening", hasBookHandoff\)/);
+  assert.match(css, /@keyframes bookPortalTravel/);
+  assert.match(css, /@keyframes handoffBookStage/);
+  assert.match(css, /\.persona-list \.shelf-upper\s*\{\s*right:24%;left:27%;/);
+  assert.match(css, /\.persona-list \.shelf-lower\s*\{\s*right:24%;left:50%;/);
+});
