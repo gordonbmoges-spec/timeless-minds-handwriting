@@ -103,7 +103,9 @@ function renderArchive() {
     const displayTitle = HISTORICAL_PERSONA_IDS.has(persona.id) ? persona.name : (persona.bookTitle || persona.name);
     button.className = isMirror
       ? "mirror-card archive-entry"
-      : `book-card archive-entry book-${persona.bookTone || "archive"}${generatedCoverImage ? " flat-cover-card" : ""}`;
+      : generatedCoverImage
+        ? "archive-entry flat-cover-card"
+        : `book-card archive-entry book-${persona.bookTone || "archive"}`;
     button.type = "button";
     button.dataset.personaId = persona.id;
     button.setAttribute("aria-disabled", String(!available));
@@ -313,7 +315,7 @@ function showScene(persona, assets) {
   const isMirror = persona.id === "magic-mirror";
   elements.backToArchive.textContent = isMirror ? "离开魔镜，返回藏书阁" : "合上并放回书架";
   elements.pinchHint.textContent = isMirror ? "双指向内收拢 · 离开魔镜" : "双指向内收拢 · 合上书籍";
-  document.title = `${persona.bookTitle || persona.name} · 会回应的藏书阁`;
+  document.title = `${persona.name} · 会回应的藏书阁`;
 
   elements.sceneBackdrop.style.backgroundImage = assets.background ? `url("${assets.background}")` : assets.backgroundCss;
   elements.sceneBackdrop.style.backgroundPosition = assets.backgroundFocus;
@@ -335,17 +337,17 @@ function showScene(persona, assets) {
   elements.personaIndex.textContent = `VOLUME ${String(allPersonas().findIndex((book) => book.id === persona.id) + 1).padStart(2, "0")}`;
   elements.mobilePersonaName.textContent = persona.name;
   elements.mobilePersonaField.textContent = `${persona.field} · ${persona.years}`;
-  elements.sceneLocation.textContent = assets.sceneLocation || persona.latinName;
-  elements.sceneTitle.textContent = assets.sceneTitle || persona.medium;
+  elements.sceneLocation.textContent = persona.name;
+  elements.sceneTitle.textContent = persona.name;
   const volumeNumber = allPersonas().findIndex((book) => book.id === persona.id) + 1;
   elements.activeBookVolume.textContent = `VOL. ${String(volumeNumber).padStart(2, "0")}`;
-  elements.activeBookTitle.textContent = persona.bookTitle || persona.name;
-  elements.activeBookOwner.textContent = persona.name;
+  elements.activeBookTitle.textContent = persona.name;
+  elements.activeBookOwner.textContent = "";
   elements.openingBookSigil.textContent = assets.sigil || persona.sigil || persona.name.slice(0, 1);
-  elements.openingBookTitle.textContent = persona.bookTitle || persona.name;
+  elements.openingBookTitle.textContent = persona.name;
   elements.openingBookLatin.textContent = persona.latinName;
   elements.paperObject.classList.remove("book-unfolding");
-  elements.paperObject.dataset.bookTitle = persona.bookTitle || persona.name;
+  elements.paperObject.dataset.bookTitle = persona.name;
   const coverColor = assets.coverColor || bookCoverColor(persona.bookTone);
   const coverAccent = assets.coverAccent || "#b9ad61";
   for (const target of [elements.sceneView, elements.paperObject]) {

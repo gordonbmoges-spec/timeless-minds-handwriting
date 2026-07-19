@@ -39,3 +39,17 @@ test("uses a quiet two-row flat-cover gallery and the same cover while opening",
   assert.match(css, /\.scene-view\.has-generated-cover \.pageflip-cover-face:not\(\.pageflip-back-cover\)[^{]*\{[^}]*var\(--opening-cover-image\)/s);
   assert.match(css, /@keyframes realBookArrive/);
 });
+
+test("ships a boundaryless panoramic parchment and removes writing-scene labels", async () => {
+  const parchment = new URL("../public/assets/magic/panoramic-parchment.webp", import.meta.url);
+  await access(parchment);
+  assert.ok((await stat(parchment)).size > 200_000);
+
+  const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(css, /\.scene-view:not\(\.scene-mirror\) \.paper-object\s*\{[^}]*panoramic-parchment\.webp/s);
+  assert.match(css, /\.scene-view:not\(\.scene-mirror\) \.writing-heading\s*\{\s*display:none;/);
+  assert.match(css, /\.scene-view:not\(\.scene-mirror\) \.book-edge\s*\{\s*display:none;/);
+  assert.match(app, /elements\.activeBookTitle\.textContent = persona\.name;/);
+  assert.match(app, /elements\.openingBookTitle\.textContent = persona\.name;/);
+});
