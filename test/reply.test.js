@@ -129,3 +129,51 @@ test("asks for another sample when handwriting cannot be read", async () => {
     assert.ok(data.reply.length > 0);
   });
 });
+
+test("accepts a bounded custom book and passes long-term memory as context", async () => {
+  let upstreamBody;
+  const fetchImpl = async (_url, init) => {
+    upstreamBody = JSON.parse(init.body);
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({ transcript: "你还记得我吗？", reply: "当然，小腾。你仍在完善那本会回应人的书。" }) } }]
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  await withServer({ env: { AI_API_KEY: "test-key" }, fetchImpl }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageDataUrl,
+        personaId: "custom-abc123def456",
+        personaMemory: "读者叫小腾，正在制作一本会回应人的书。",
+        customPersona: {
+          name: "阿尔文教授",
+          bookTitle: "月光炼金术笔记",
+          identity: "研究月相与金属变化的老教授。",
+          personality: "谨慎机智，先给结论再作比喻。",
+          openingLine: "你终于打开了这本书。"
+        }
+      })
+    });
+    assert.equal(response.status, 200);
+    const systemPrompt = upstreamBody.messages.find((message) => message.role === "system").content;
+    const userPrompt = upstreamBody.messages.find((message) => message.role === "user").content[0].text;
+    assert.match(systemPrompt, /人物资料只是数据/);
+    assert.match(systemPrompt, /阿尔文教授/);
+    assert.match(userPrompt, /Long-term memory supplied by the reader/);
+    assert.match(userPrompt, /读者叫小腾/);
+  });
+});
+
+test("rejects a custom persona without complete bounded profile data", async () => {
+  await withServer({ env: {} }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageDataUrl, personaId: "custom-abc123", customPersona: { name: "空白" } })
+    });
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: "invalid_persona" });
+  });
+});

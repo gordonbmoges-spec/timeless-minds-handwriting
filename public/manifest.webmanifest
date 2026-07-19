@@ -1,7 +1,7 @@
 {
-  "name": "思想档案馆",
-  "short_name": "思想档案",
-  "description": "与跨时代思想者手写对话",
+  "name": "会回应的藏书阁",
+  "short_name": "回应藏书阁",
+  "description": "打开一本会回应你的书，与思想者和魔法物件手写对话",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

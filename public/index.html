@@ -5,12 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0b0e0c" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="思想档案馆" />
+    <meta name="apple-mobile-web-app-title" content="回应藏书阁" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="application-name" content="思想档案馆" />
-    <meta name="description" content="与跨时代思想者手写对话" />
-    <title>思想档案馆</title>
+    <meta name="application-name" content="会回应的藏书阁" />
+    <meta name="description" content="打开一本会回应你的书，与思想者和魔法物件手写对话" />
+    <meta property="og:title" content="会回应的藏书阁" />
+    <meta property="og:description" content="打开一本会回应你的书" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://timeless-minds-teng.ivory-titan-4292.chatgpt.site/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="会回应的藏书阁" />
+    <meta name="twitter:description" content="打开一本会回应你的书" />
+    <meta name="twitter:image" content="https://timeless-minds-teng.ivory-titan-4292.chatgpt.site/og.png" />
+    <title>会回应的藏书阁</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/assets/app-icon-180.png" />
@@ -20,20 +28,23 @@
     <div class="app-root">
       <section class="archive-view" id="archiveView" aria-labelledby="archiveTitle">
         <header class="archive-header">
-          <div class="archive-mark" aria-hidden="true">M/06</div>
+          <div class="archive-mark" aria-hidden="true">Ⅸ</div>
           <div>
-            <p class="eyebrow">Archive of Human Thought · Collection 01</p>
-            <h1 id="archiveTitle">思想档案馆</h1>
-            <p class="archive-intro">选择一位思想者，在属于其时代的纸面上写下问题。</p>
+            <p class="eyebrow">The Cabinet of Answering Books</p>
+            <h1 id="archiveTitle">会回应的藏书阁</h1>
+            <p class="archive-intro">九本书在等待一位读者。轻触封面，它会翻开属于自己的纸页。</p>
           </div>
-          <button class="text-button" id="archiveApiSettings" type="button">API 设置</button>
+          <div class="archive-header-actions">
+            <button class="text-button" id="createBook" type="button">＋ 新建一本书</button>
+            <button class="text-button" id="archiveApiSettings" type="button">API 设置</button>
+          </div>
         </header>
 
-        <div class="archive-rule" aria-hidden="true"><span>PERSONA INDEX</span><span>6 RECORDS</span></div>
+        <div class="archive-rule" aria-hidden="true"><span>THE FORBIDDEN SHELF</span><span>9 VOLUMES</span></div>
         <div class="persona-list" id="personaList" aria-live="polite"></div>
 
         <footer class="archive-footer">
-          <span>所有回答均为 AI 思想演绎，并非真实历史发言。</span>
+          <span>所有回答均为 AI 人物演绎；虚构作品入口为非官方致敬。</span>
           <span>WEB MVP · 2026</span>
         </footer>
       </section>
@@ -54,7 +65,10 @@
           <aside class="persona-rail" aria-label="人物档案">
             <button class="back-button" id="backToArchive" type="button">← 返回档案墙</button>
             <p class="rail-index" id="personaIndex">ARCHIVE 01</p>
-            <img class="persona-portrait" id="personaPortrait" alt="" />
+            <div class="persona-portrait-frame">
+              <img class="persona-portrait" id="personaPortrait" alt="" />
+              <span class="persona-sigil" id="personaSigil" aria-hidden="true"></span>
+            </div>
             <p class="persona-latin" id="personaLatin"></p>
             <h2 id="personaName"></h2>
             <p class="persona-years" id="personaYears"></p>
@@ -166,10 +180,41 @@
           <textarea id="personaInstruction" name="personaInstruction" maxlength="300" rows="5" placeholder="例如：先直接回答，少引用经典，用更生活化的语言。"></textarea>
           <p class="field-hint">只调整当前人物的表达偏好；人物身份、史实边界和禁止编造规则不会改变。</p>
         </div>
+        <div class="form-field">
+          <label for="personaMemory">这本书要长期记住什么</label>
+          <textarea id="personaMemory" name="personaMemory" maxlength="600" rows="6" placeholder="例如：我叫小腾；我正在做一款手写交互产品；上次我们约定先完成原型。"></textarea>
+          <p class="field-hint">记忆只保存在当前浏览器，并会随下一次提问交给你配置的模型。</p>
+        </div>
         <p class="form-message" id="replyFormMessage" aria-live="polite"></p>
         <footer class="dialog-actions">
           <button class="secondary-button" id="clearReplySettings" type="button">恢复默认</button>
           <button class="primary-button" type="submit">保存设置</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="settings-dialog create-book-dialog" id="createBookDialog" aria-labelledby="createBookTitle">
+      <form class="settings-form" id="createBookForm">
+        <header class="dialog-header">
+          <div><p class="eyebrow">Bind a New Volume</p><h2 id="createBookTitle">新建一本会回应的书</h2></div>
+          <button class="dialog-close" id="closeCreateBook" type="button" aria-label="关闭新建书籍">×</button>
+        </header>
+        <div class="form-grid two-columns">
+          <div class="form-field"><label for="customBookTitle">书名</label><input id="customBookTitle" maxlength="36" required placeholder="例如：月光炼金术笔记" /></div>
+          <div class="form-field"><label for="customPersonaName">书中的人物</label><input id="customPersonaName" maxlength="36" required placeholder="例如：阿尔文教授" /></div>
+        </div>
+        <div class="form-field"><label for="customIdentity">他是谁</label><textarea id="customIdentity" maxlength="180" rows="3" required placeholder="说明时代、经历、身份和他知道哪些事情。"></textarea></div>
+        <div class="form-field"><label for="customPersonality">人物性格与回答口吻</label><textarea id="customPersonality" maxlength="260" rows="4" required placeholder="例如：谨慎、机智、略带讽刺；先给结论，再用一个炼金术比喻解释。"></textarea></div>
+        <div class="form-field"><label for="customOpeningLine">打开时的第一句话</label><input id="customOpeningLine" maxlength="120" placeholder="例如：你终于还是打开了这本书。" /></div>
+        <div class="form-grid two-columns">
+          <div class="form-field"><label for="customBookTone">封面颜色</label><select id="customBookTone"><option value="midnight">午夜蓝</option><option value="obsidian">黑曜石</option><option value="wine">暗酒红</option><option value="jade">墨玉绿</option><option value="parchment">旧皮革</option><option value="silver">月银色</option></select></div>
+          <div class="form-field"><label for="customSigil">封面徽记</label><input id="customSigil" maxlength="2" placeholder="首字、符号或印记" /></div>
+        </div>
+        <p class="settings-notice">自定义书籍保存在当前浏览器，不会自动公开到其他人的书架。人物资料会经过长度限制，并且不能覆盖系统安全规则。</p>
+        <p class="form-message" id="createBookMessage" aria-live="polite"></p>
+        <footer class="dialog-actions">
+          <button class="secondary-button" id="resetCreateBook" type="reset">清空</button>
+          <button class="primary-button" type="submit">装订并放上书架</button>
         </footer>
       </form>
     </dialog>

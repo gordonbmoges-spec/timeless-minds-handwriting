@@ -2,15 +2,19 @@ import { PERSONAS, findPersona } from "/data/personas.js";
 import { PERSONA_ASSETS, getPersonaAssets } from "/assets/personas/manifest.js";
 import { requestPersonaReply } from "/modules/ai-client.js";
 import { createHistoryStore } from "/modules/history-store.js";
+import { createCustomBookStore } from "/modules/custom-books.js";
 import { InkEngine } from "/modules/ink-engine.js";
 import { ReplyPresenter } from "/modules/reply-presenter.js";
 import { navigateTo, personaPath, routeFromPath } from "/modules/router.js";
 
 const API_SETTINGS_KEY = "ink-diary-api-settings-v1";
 const REPLY_PREFERENCE_PREFIX = "minds-archive-reply-preference-v1-";
+const PERSONA_MEMORY_PREFIX = "minds-archive-memory-v1-";
 const IDLE_SEND_MS = 1_800;
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const historyStore = createHistoryStore();
+const customBookStore = createCustomBookStore();
+let customBooks = customBookStore.load();
 let apiSessionConfig = null;
 let purgedLegacyApiSettings = false;
 
@@ -33,9 +37,9 @@ const providerDefaults = {
 };
 
 const elements = Object.fromEntries([
-  "archiveView", "sceneView", "personaList", "archiveApiSettings", "sceneBackdrop",
+  "archiveView", "sceneView", "personaList", "archiveApiSettings", "createBook", "sceneBackdrop",
   "mobileBack", "mobileSettings", "mobileHistory", "mobileReplySettings", "mobilePersonaName", "mobilePersonaField",
-  "backToArchive", "personaIndex", "personaPortrait", "personaLatin", "personaName",
+  "backToArchive", "personaIndex", "personaPortrait", "personaSigil", "personaLatin", "personaName",
   "personaYears", "personaField", "personaMedium", "sceneLocation", "sceneTitle",
   "statusReadout", "paperObject", "paperImage", "writingSurface", "inkCanvas",
   "replyCanvas", "loadingNote", "penTool", "eraserTool", "sendNow", "clearPage",
@@ -43,8 +47,10 @@ const elements = Object.fromEntries([
   "apiSettingsDialog", "apiSettingsForm", "closeApiSettings", "clearApiSettings",
   "toggleApiKey", "apiProvider", "apiKey", "apiBaseUrl", "apiModel", "modelHint",
   "apiFormMessage", "replySettingsDialog", "replySettingsForm", "closeReplySettings",
-  "clearReplySettings", "personaInstruction", "replyFormMessage", "historyDialog",
-  "closeHistory", "clearHistory", "historyList", "historyTitle"
+  "clearReplySettings", "personaInstruction", "personaMemory", "replyFormMessage", "historyDialog",
+  "closeHistory", "clearHistory", "historyList", "historyTitle", "createBookDialog",
+  "createBookForm", "closeCreateBook", "customBookTitle", "customPersonaName", "customIdentity",
+  "customPersonality", "customOpeningLine", "customBookTone", "customSigil", "createBookMessage"
 ].map((id) => [id, document.getElementById(id)]));
 
 const state = {
@@ -65,61 +71,73 @@ updateConnectionCopy();
 registerLocalAppShell();
 
 function renderArchive() {
-  elements.personaList.replaceChildren(...PERSONAS.map((persona, index) => {
-    const assets = getPersonaAssets(persona.id);
+  const books = allPersonas();
+  elements.personaList.replaceChildren(...books.map((persona, index) => {
+    const assets = getAvailableAssets(persona);
     const available = Boolean(assets);
     const button = document.createElement("button");
-    button.className = "persona-record";
+    button.className = `book-card book-${persona.bookTone || "archive"}`;
     button.type = "button";
     button.dataset.personaId = persona.id;
     button.setAttribute("aria-disabled", String(!available));
+    button.setAttribute("aria-label", `打开《${persona.bookTitle || persona.name}》，与${persona.name}对话`);
+
+    const volume = document.createElement("span");
+    volume.className = "book-volume";
 
     const number = document.createElement("span");
-    number.className = "persona-number";
-    number.textContent = String(index + 1).padStart(2, "0");
+    number.className = "book-number";
+    number.textContent = `VOL. ${String(index + 1).padStart(2, "0")}`;
 
-    const portrait = available
-      ? document.createElement("img")
-      : document.createElement("span");
-    portrait.className = available ? "record-portrait" : "record-portrait placeholder";
-    if (available) {
-      portrait.src = assets.portrait;
-      portrait.alt = `${persona.name}历史肖像`;
+    let emblem;
+    if (assets?.portrait) {
+      emblem = document.createElement("img");
+      emblem.className = "book-cameo";
+      emblem.src = assets.portrait;
+      emblem.alt = "";
     } else {
-      portrait.textContent = persona.name.slice(0, 1);
-      portrait.setAttribute("aria-hidden", "true");
+      emblem = document.createElement("span");
+      emblem.className = "book-sigil";
+      emblem.textContent = persona.sigil || persona.name.slice(0, 1);
+      emblem.setAttribute("aria-hidden", "true");
     }
 
-    const name = document.createElement("span");
-    name.className = "record-name";
-    const strong = document.createElement("strong");
-    strong.textContent = persona.name;
+    const title = document.createElement("strong");
+    title.className = "book-title";
+    title.textContent = persona.bookTitle || persona.name;
+
     const latin = document.createElement("span");
+    latin.className = "book-latin";
     latin.textContent = persona.latinName;
-    name.append(strong, latin);
 
-    const meta = document.createElement("span");
-    meta.className = "record-meta";
-    meta.textContent = `${persona.field}\n${persona.years}`;
-
-    const medium = document.createElement("span");
-    medium.className = "record-medium";
-    medium.textContent = persona.medium;
+    const owner = document.createElement("span");
+    owner.className = "book-owner";
+    owner.textContent = persona.name;
 
     const status = document.createElement("span");
-    status.className = `record-status${available ? "" : " pending"}`;
-    status.textContent = available ? "进入档案 →" : "整理中";
+    status.className = "book-open-copy";
+    status.textContent = available ? "轻触翻开" : "整理中";
 
-    button.append(number, portrait, name, meta, medium, status);
+    volume.append(number, emblem, title, latin, owner, status);
+    button.append(volume);
     button.addEventListener("click", () => {
-      if (available) navigateTo(personaPath(persona.id));
-      else {
-        status.textContent = "将在孔子验收后开放";
-        setTimeout(() => { status.textContent = "整理中"; }, 1_800);
-      }
+      if (!available) return;
+      openBook(persona.id, button);
     });
     return button;
   }));
+}
+
+function openBook(personaId, button) {
+  if (button.classList.contains("is-opening")) return;
+  button.classList.add("is-opening");
+  elements.archiveView.classList.add("is-opening-book");
+  const delay = reducedMotion ? 0 : 620;
+  setTimeout(() => {
+    elements.archiveView.classList.remove("is-opening-book");
+    button.classList.remove("is-opening");
+    navigateTo(personaPath(personaId));
+  }, delay);
 }
 
 function bindGlobalEvents() {
@@ -130,6 +148,12 @@ function bindGlobalEvents() {
   elements.eraserTool.addEventListener("click", () => setTool("eraser"));
   elements.sendNow.addEventListener("click", commitPage);
   elements.clearPage.addEventListener("click", clearPage);
+  elements.createBook.addEventListener("click", showCreateBook);
+  elements.closeCreateBook.addEventListener("click", () => elements.createBookDialog.close());
+  elements.createBookForm.addEventListener("submit", saveCustomBook);
+  elements.createBookDialog.addEventListener("click", (event) => {
+    if (event.target === elements.createBookDialog) elements.createBookDialog.close();
+  });
 
   for (const button of [elements.archiveApiSettings, elements.openApiSettings, elements.mobileSettings]) {
     button.addEventListener("click", showApiSettings);
@@ -164,8 +188,8 @@ function bindGlobalEvents() {
 function handleRoute() {
   const route = routeFromPath(location.pathname);
   if (route.view === "persona") {
-    const persona = findPersona(route.personaId);
-    const assets = getPersonaAssets(route.personaId);
+    const persona = findAvailablePersona(route.personaId);
+    const assets = persona ? getAvailableAssets(persona) : null;
     if (persona && assets) {
       showScene(persona, assets);
       return;
@@ -180,7 +204,8 @@ function showArchive() {
   state.assets = null;
   elements.sceneView.hidden = true;
   elements.archiveView.hidden = false;
-  document.title = "思想档案馆";
+  elements.sceneView.classList.remove("is-revealed");
+  document.title = "会回应的藏书阁";
 }
 
 function showScene(persona, assets) {
@@ -190,27 +215,44 @@ function showScene(persona, assets) {
   state.history = historyStore.load(persona.id);
   elements.archiveView.hidden = true;
   elements.sceneView.hidden = false;
-  document.title = `${persona.name} · 思想档案馆`;
+  document.title = `${persona.bookTitle || persona.name} · 会回应的藏书阁`;
 
-  elements.sceneBackdrop.style.backgroundImage = `url("${assets.background}")`;
+  elements.sceneBackdrop.style.backgroundImage = assets.background ? `url("${assets.background}")` : assets.backgroundCss;
   elements.sceneBackdrop.style.backgroundPosition = assets.backgroundFocus;
-  elements.personaPortrait.src = assets.portrait;
-  elements.personaPortrait.alt = `${persona.name}历史肖像`;
+  elements.personaPortrait.hidden = !assets.portrait;
+  elements.personaSigil.hidden = Boolean(assets.portrait);
+  if (assets.portrait) {
+    elements.personaPortrait.src = assets.portrait;
+    elements.personaPortrait.alt = `${persona.name}人物图像`;
+  } else {
+    elements.personaPortrait.removeAttribute("src");
+    elements.personaPortrait.alt = "";
+    elements.personaSigil.textContent = assets.sigil || persona.sigil || persona.name.slice(0, 1);
+  }
   elements.personaLatin.textContent = persona.latinName;
   elements.personaName.textContent = persona.name;
   elements.personaYears.textContent = persona.years;
   elements.personaField.textContent = persona.field;
   elements.personaMedium.textContent = persona.medium;
-  elements.personaIndex.textContent = `ARCHIVE ${String(PERSONAS.indexOf(persona) + 1).padStart(2, "0")}`;
+  elements.personaIndex.textContent = `VOLUME ${String(allPersonas().findIndex((book) => book.id === persona.id) + 1).padStart(2, "0")}`;
   elements.mobilePersonaName.textContent = persona.name;
   elements.mobilePersonaField.textContent = `${persona.field} · ${persona.years}`;
   elements.sceneLocation.textContent = assets.sceneLocation || persona.latinName;
   elements.sceneTitle.textContent = assets.sceneTitle || persona.medium;
-  elements.paperImage.hidden = false;
-  elements.paperObject.style.background = "";
-  elements.paperObject.style.border = "";
-  elements.paperImage.src = assets.paper;
-  elements.paperImage.alt = `${persona.name}的空白${persona.medium.split(" · ")[0]}`;
+  elements.paperObject.classList.remove("book-unfolding");
+  elements.paperObject.dataset.bookTitle = persona.bookTitle || persona.name;
+  elements.paperObject.style.setProperty("--book-cover", assets.coverColor || bookCoverColor(persona.bookTone));
+  elements.paperObject.style.setProperty("--book-accent", assets.coverAccent || "#b9ad61");
+  elements.paperImage.hidden = !assets.paper;
+  elements.paperObject.style.background = assets.paper ? "" : assets.paperBackground;
+  elements.paperObject.style.border = assets.paper ? "" : assets.paperBorder;
+  if (assets.paper) {
+    elements.paperImage.src = assets.paper;
+    elements.paperImage.alt = `${persona.name}的空白${persona.medium.split(" · ")[0]}`;
+  } else {
+    elements.paperImage.removeAttribute("src");
+    elements.paperImage.alt = "";
+  }
   elements.paperObject.style.aspectRatio = String(assets.paperAspectRatio || 1);
   elements.writingSurface.style.setProperty("--write-x", `${assets.writingArea.x * 100}%`);
   elements.writingSurface.style.setProperty("--write-y", `${assets.writingArea.y * 100}%`);
@@ -225,7 +267,11 @@ function showScene(persona, assets) {
   }));
   updateHistoryCount();
 
-  elements.paperImage.addEventListener("error", showPaperFallback, { once: true });
+  if (assets.paper) elements.paperImage.addEventListener("error", showPaperFallback, { once: true });
+  requestAnimationFrame(() => {
+    elements.sceneView.classList.add("is-revealed");
+    elements.paperObject.classList.add("book-unfolding");
+  });
   requestAnimationFrame(setupSceneEngines);
   setStatus("等待书写");
   setTool("pen");
@@ -263,6 +309,19 @@ function setupSceneEngines() {
   state.resizeObserver = new ResizeObserver(resize);
   state.resizeObserver.observe(elements.writingSurface);
   resize();
+  if (state.persona.openingLine) {
+    const openingDelay = reducedMotion ? 10 : 920;
+    setTimeout(() => {
+      if (!state.reply || state.busy || state.ink?.hasInk()) return;
+      state.reply.show(state.persona.openingLine, {
+        direction: state.assets.writingDirection,
+        color: state.assets.replyInk,
+        fontFamily: replyFontFor(state.persona.openingLine),
+        fontSize: state.assets.replyFontSize || 36,
+        pace: 1.18
+      });
+    }, openingDelay);
+  }
 }
 
 function teardownScene() {
@@ -279,8 +338,8 @@ function teardownScene() {
 
 function showPaperFallback() {
   elements.paperImage.hidden = true;
-  elements.paperObject.style.background = "#b18b4e";
-  elements.paperObject.style.border = "10px solid #6f512c";
+  elements.paperObject.style.background = state.assets?.paperBackground || "#b18b4e";
+  elements.paperObject.style.border = state.assets?.paperBorder || "10px solid #6f512c";
 }
 
 function setTool(tool) {
@@ -313,6 +372,14 @@ async function commitPage() {
       style: state.ink.sampleStyle(),
       history: state.history.slice(0, 6).reverse(),
       personaInstruction: readReplyPreference(state.persona.id),
+      personaMemory: readPersonaMemory(state.persona.id),
+      customPersona: state.persona.isCustom ? {
+        name: state.persona.name,
+        bookTitle: state.persona.bookTitle,
+        identity: state.persona.identity,
+        personality: state.persona.personality,
+        openingLine: state.persona.openingLine
+      } : null,
       apiConfig: readApiSettings()
     });
     await fadeAndClearInk();
@@ -331,7 +398,7 @@ async function commitPage() {
     await state.reply.show(data.reply || "", {
       direction: state.assets.writingDirection,
       color: state.assets.replyInk,
-      fontFamily: '"STKaiti", "KaiTi", "Songti SC", serif',
+      fontFamily: replyFontFor(data.reply),
       fontSize: state.assets.replyFontSize || 36,
       pace: data.style?.pace || 1
     });
@@ -466,6 +533,7 @@ function showApiFormMessage(message, type) {
 function showReplySettings() {
   if (!state.persona) return;
   elements.personaInstruction.value = readReplyPreference(state.persona.id);
+  elements.personaMemory.value = readPersonaMemory(state.persona.id);
   elements.replySettingsTitle.textContent = `${state.persona.name} · 回复方式`;
   elements.replyFormMessage.textContent = "";
   elements.replyFormMessage.className = "form-message";
@@ -477,15 +545,19 @@ function saveReplyPreference(event) {
   event.preventDefault();
   if (!state.persona) return;
   const value = elements.personaInstruction.value.replace(/\s+/g, " ").trim().slice(0, 300);
+  const memory = elements.personaMemory.value.replace(/\s+/g, " ").trim().slice(0, 600);
   try {
     if (value) localStorage.setItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`, value);
     else localStorage.removeItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`);
+    if (memory) localStorage.setItem(`${PERSONA_MEMORY_PREFIX}${state.persona.id}`, memory);
+    else localStorage.removeItem(`${PERSONA_MEMORY_PREFIX}${state.persona.id}`);
   } catch {
     showReplyFormMessage("浏览器不允许保存这项设置。", "error");
     return;
   }
   elements.personaInstruction.value = value;
-  showReplyFormMessage(value ? "已保存，下一次回信会采用这个偏好。" : "已恢复人物默认回复方式。", "success");
+  elements.personaMemory.value = memory;
+  showReplyFormMessage(value || memory ? "回复偏好与长期记忆已保存。" : "已恢复人物默认回复方式并清空长期记忆。", "success");
   setTimeout(() => elements.replySettingsDialog.close(), reducedMotion ? 0 : 500);
 }
 
@@ -493,11 +565,16 @@ function clearSavedReplyPreference() {
   if (!state.persona) return;
   try { localStorage.removeItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`); } catch {}
   elements.personaInstruction.value = "";
-  showReplyFormMessage("已恢复人物默认回复方式。", "success");
+  showReplyFormMessage("已恢复人物默认回复方式；长期记忆仍然保留。", "success");
 }
 
 function readReplyPreference(personaId) {
   try { return String(localStorage.getItem(`${REPLY_PREFERENCE_PREFIX}${personaId}`) || "").slice(0, 300); }
+  catch { return ""; }
+}
+
+function readPersonaMemory(personaId) {
+  try { return String(localStorage.getItem(`${PERSONA_MEMORY_PREFIX}${personaId}`) || "").slice(0, 600); }
   catch { return ""; }
 }
 
@@ -566,6 +643,93 @@ function formatArchiveTime(value) {
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function replyFontFor(text) {
+  const value = String(text || "");
+  const latin = (value.match(/[A-Za-z]/g) || []).length;
+  const cjk = (value.match(/[\u3400-\u9fff]/g) || []).length;
+  return latin > cjk
+    ? '"IM FELL English", "Dancing Script", Georgia, serif'
+    : '"ZCOOL XiaoWei", "Kaiti SC", "STKaiti", "KaiTi", serif';
+}
+
+function bookCoverColor(tone) {
+  return {
+    jade: "#203c32", marble: "#5c5c54", umber: "#5a351f", wine: "#51212a",
+    crimson: "#5d171c", midnight: "#17283a", silver: "#273237", obsidian: "#17130f",
+    parchment: "#4a2e1c"
+  }[tone] || "#2c2a22";
+}
+
+function allPersonas() {
+  return [...PERSONAS, ...customBooks];
+}
+
+function findAvailablePersona(id) {
+  return findPersona(id) || customBooks.find((book) => book.id === id) || null;
+}
+
+function getAvailableAssets(persona) {
+  return getPersonaAssets(persona.id) || (persona.isCustom ? customAssets(persona) : null);
+}
+
+function customAssets(persona) {
+  const cover = bookCoverColor(persona.bookTone);
+  return {
+    background: null,
+    backgroundCss: `radial-gradient(circle at 50% 30%, ${cover}88, transparent 34%), linear-gradient(145deg, #10110f, #030403 70%)`,
+    paper: null,
+    portrait: null,
+    sigil: persona.sigil,
+    sceneLocation: "A PRIVATE SHELF · YOUR MEMORY",
+    sceneTitle: persona.bookTitle,
+    paperAspectRatio: .78,
+    writingArea: { x: .13, y: .12, width: .74, height: .76 },
+    paperBackground: "radial-gradient(circle at 35% 24%, rgba(255,250,213,.66), transparent 37%), repeating-linear-gradient(0deg, rgba(89,57,28,.055) 0 1px, transparent 1px 27px), #c9aa72",
+    paperBorder: `10px solid ${cover}`,
+    coverColor: cover,
+    coverAccent: "#c8ad6a",
+    ink: "#2a190e",
+    replyInk: "#382115",
+    writingDirection: "horizontal-tb",
+    replyFontSize: 35
+  };
+}
+
+function showCreateBook() {
+  elements.createBookForm.reset();
+  elements.createBookMessage.textContent = "";
+  elements.createBookMessage.className = "form-message";
+  elements.createBookDialog.showModal();
+  elements.customBookTitle.focus();
+}
+
+function saveCustomBook(event) {
+  event.preventDefault();
+  try {
+    const book = customBookStore.add({
+      bookTitle: elements.customBookTitle.value,
+      name: elements.customPersonaName.value,
+      identity: elements.customIdentity.value,
+      personality: elements.customPersonality.value,
+      openingLine: elements.customOpeningLine.value,
+      bookTone: elements.customBookTone.value,
+      sigil: elements.customSigil.value
+    });
+    customBooks = customBookStore.load();
+    renderArchive();
+    elements.createBookMessage.textContent = `《${book.bookTitle}》已经放上书架。`;
+    elements.createBookMessage.className = "form-message success";
+    setTimeout(() => {
+      elements.createBookDialog.close();
+      const button = elements.personaList.querySelector(`[data-persona-id="${book.id}"]`);
+      if (button) openBook(book.id, button);
+    }, reducedMotion ? 0 : 520);
+  } catch {
+    elements.createBookMessage.textContent = "资料还不完整，请填写书名、人物身份和性格。";
+    elements.createBookMessage.className = "form-message error";
+  }
 }
 
 function registerLocalAppShell() {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "minds-archive-local-app-v8";
+const CACHE_NAME = "answering-library-local-app-v9";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -8,12 +8,18 @@ const APP_SHELL = [
   "/modules/ai-client.js",
   "/modules/ink-engine.js",
   "/modules/history-store.js",
+  "/modules/custom-books.js",
   "/modules/reply-presenter.js",
   "/modules/router.js",
   "/manifest.webmanifest",
   "/assets/app-icon.svg",
   "/assets/app-icon-180.png",
   "/assets/app-icon-512.png",
+  "/og.png",
+  "/assets/fonts/DancingScript.ttf",
+  "/assets/fonts/IMFellEnglish-Regular.ttf",
+  "/assets/fonts/UncialAntiqua-Regular.ttf",
+  "/assets/fonts/ZCOOLXiaoWei-Regular.ttf",
   "/assets/personas/manifest.js",
   "/assets/personas/confucius/background.webp",
   "/assets/personas/confucius/paper.png",

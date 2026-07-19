@@ -3,14 +3,17 @@ import { test } from "node:test";
 
 import { PERSONA_IDS, buildPersonaPrompt, getPersona } from "../lib/personas.js";
 
-test("registers exactly the six approved personas", () => {
+test("registers the six thinkers and three story books", () => {
   assert.deepEqual(PERSONA_IDS, [
     "confucius",
     "socrates",
     "da-vinci",
     "shakespeare",
     "jung",
-    "einstein"
+    "einstein",
+    "magic-mirror",
+    "tom-riddle",
+    "human-parchment"
   ]);
 });
 
@@ -51,4 +54,12 @@ test("keeps Shakespeare recognizable through original and translated traditions"
 test("keeps all persona prompts visibly distinct", () => {
   const prompts = PERSONA_IDS.map((id) => buildPersonaPrompt(id));
   assert.equal(new Set(prompts).size, PERSONA_IDS.length);
+});
+
+test("story books keep recognizable character boundaries", () => {
+  assert.match(buildPersonaPrompt("magic-mirror"), /当然是你呀，皇后/);
+  assert.match(buildPersonaPrompt("tom-riddle"), /汤姆·里德尔.*日记/s);
+  assert.match(buildPersonaPrompt("tom-riddle"), /不照抄小说对白.*不模仿原作者文风/);
+  assert.match(buildPersonaPrompt("human-parchment"), /未来完成时/);
+  assert.match(buildPersonaPrompt("human-parchment"), /虚构预言.*现实预测/);
 });

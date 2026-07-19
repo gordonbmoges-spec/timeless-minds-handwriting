@@ -9,13 +9,19 @@ import { PERSONAS } from "../public/data/personas.js";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
-test("all registered personas have local scene assets", () => {
+test("all registered personas have local or CSS-generated scene assets", () => {
   for (const persona of PERSONAS) {
     const assets = PERSONA_ASSETS[persona.id];
     assert.ok(assets, `${persona.id} should have an asset manifest entry`);
 
     for (const key of ["background", "paper", "portrait"]) {
       const publicPath = assets[key];
+      if (!publicPath) {
+        if (key === "background") assert.ok(assets.backgroundCss, `${persona.id} should define a generated background`);
+        if (key === "paper") assert.ok(assets.paperBackground, `${persona.id} should define a generated paper`);
+        if (key === "portrait") assert.ok(assets.sigil, `${persona.id} should define a portrait sigil`);
+        continue;
+      }
       assert.equal(publicPath.startsWith("/assets/personas/"), true, `${persona.id}.${key} should use a local asset path`);
       const filePath = join(root, "public", publicPath);
       assert.equal(existsSync(filePath), true, `${persona.id}.${key} should exist`);
