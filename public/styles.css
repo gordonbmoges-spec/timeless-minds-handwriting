@@ -1952,6 +1952,11 @@ body {
 .book-shelf-row .generated-book-card:nth-child(7) { --shelf-order:7;--shelf-lift:0px;--shelf-tilt:-.24deg; }
 .book-shelf-row .generated-book-card:nth-child(8) { --shelf-order:8;--shelf-lift:2px;--shelf-tilt:.18deg; }
 .book-shelf-row .generated-book-card.is-opening { z-index:40; }
+.book-shelf-row .generated-book-card .book-title {
+  left:34%;
+  top:52%;
+  background:linear-gradient(90deg,transparent,rgba(12,8,4,.38),transparent);
+}
 
 .generated-book-card:hover,
 .generated-book-card:focus-visible {
