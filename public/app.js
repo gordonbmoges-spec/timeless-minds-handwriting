@@ -141,14 +141,29 @@ function renderArchive() {
 
 function openBook(personaId, button) {
   if (button.classList.contains("is-opening")) return;
+  const books = [...elements.personaList.querySelectorAll(".book-card")];
+  const selectedIndex = Math.max(0, books.indexOf(button));
+  elements.personaList.classList.add("is-selecting-book");
+  books.forEach((book, index) => {
+    if (book === button) return;
+    book.classList.add("is-receding");
+    book.style.setProperty("--recede-delay", `${Math.min(280, 70 + Math.abs(index - selectedIndex) * 28)}ms`);
+  });
   button.classList.add("is-opening");
   elements.archiveView.classList.add("is-opening-book");
-  const delay = reducedMotion ? 0 : 1_050;
+  const delay = reducedMotion ? 0 : 1_720;
   setTimeout(() => {
-    elements.archiveView.classList.remove("is-opening-book");
-    button.classList.remove("is-opening");
     navigateTo(personaPath(personaId));
   }, delay);
+}
+
+function resetArchiveSelection() {
+  elements.archiveView.classList.remove("is-opening-book");
+  elements.personaList.classList.remove("is-selecting-book");
+  for (const book of elements.personaList.querySelectorAll(".book-card")) {
+    book.classList.remove("is-opening", "is-receding");
+    book.style.removeProperty("--recede-delay");
+  }
 }
 
 function bindGlobalEvents() {
@@ -222,6 +237,7 @@ function handleRoute() {
 
 function showArchive() {
   teardownScene();
+  resetArchiveSelection();
   state.persona = null;
   state.assets = null;
   elements.sceneView.hidden = true;
@@ -392,6 +408,7 @@ function setupOpeningFlipbook() {
   clearFlipTimers();
   if (reducedMotion || !globalThis.St?.PageFlip || !elements.openingFlipbook) return;
   disposePageFlip();
+  resetFlipbookMarkup();
 
   const pages = elements.openingFlipbook.querySelectorAll(":scope > .opening-flip-page");
   if (pages.length < 4) return;
@@ -433,11 +450,24 @@ function disposePageFlip() {
   if (!state.pageFlip) return;
   try {
     state.pageFlip.clear();
-    state.pageFlip.destroy();
+    state.pageFlip.getUI().destroy();
   } catch (error) {
     console.warn("Page flip cleanup failed", error);
   }
   state.pageFlip = null;
+  resetFlipbookMarkup();
+}
+
+function resetFlipbookMarkup() {
+  const root = elements.openingFlipbook;
+  if (!root) return;
+  root.querySelector(":scope > .stf__wrapper")?.remove();
+  root.classList.remove("stf__parent");
+  root.removeAttribute("style");
+  for (const page of root.querySelectorAll(":scope > .opening-flip-page")) {
+    page.classList.remove("stf__item", "--hard", "--soft", "--left", "--right", "--simple");
+    page.removeAttribute("style");
+  }
 }
 
 function setupSceneEngines() {
