@@ -1,6 +1,7 @@
 import { PERSONAS, findPersona } from "/data/personas.js";
 import { PERSONA_ASSETS, getPersonaAssets } from "/assets/personas/manifest.js";
 import { requestPersonaReply } from "/modules/ai-client.js";
+import { shouldCloseFromPinch, shouldOpenDrawerFromEdge } from "/modules/book-gestures.js";
 import { createHistoryStore } from "/modules/history-store.js";
 import { createCustomBookStore } from "/modules/custom-books.js";
 import { InkEngine } from "/modules/ink-engine.js";
@@ -50,7 +51,9 @@ const elements = Object.fromEntries([
   "clearReplySettings", "personaInstruction", "personaMemory", "replyFormMessage", "historyDialog",
   "closeHistory", "clearHistory", "historyList", "historyTitle", "createBookDialog",
   "createBookForm", "closeCreateBook", "customBookTitle", "customPersonaName", "customIdentity",
-  "customPersonality", "customOpeningLine", "customBookTone", "customSigil", "createBookMessage"
+  "customPersonality", "customOpeningLine", "customBookTone", "customSigil", "createBookMessage",
+  "bookDrawer", "toggleBookDrawer", "closeBookDrawer", "activeBookVolume", "activeBookTitle",
+  "activeBookOwner", "pinchHint"
 ].map((id) => [id, document.getElementById(id)]));
 
 const state = {
@@ -61,7 +64,11 @@ const state = {
   resizeObserver: null,
   idleTimer: null,
   busy: false,
-  history: []
+  history: [],
+  touchPoints: new Map(),
+  pinchStart: null,
+  edgePullStart: null,
+  closing: false
 };
 
 renderArchive();
@@ -142,8 +149,19 @@ function openBook(personaId, button) {
 
 function bindGlobalEvents() {
   addEventListener("popstate", handleRoute);
-  elements.backToArchive.addEventListener("click", () => navigateTo("/"));
-  elements.mobileBack.addEventListener("click", () => navigateTo("/"));
+  elements.backToArchive.addEventListener("click", closeBookToShelf);
+  elements.mobileBack.addEventListener("click", closeBookToShelf);
+  elements.toggleBookDrawer.addEventListener("click", toggleBookDrawer);
+  elements.closeBookDrawer.addEventListener("click", () => setBookDrawer(false));
+  elements.sceneView.addEventListener("pointerdown", trackBookGesture, true);
+  elements.sceneView.addEventListener("pointermove", trackBookGesture, true);
+  elements.sceneView.addEventListener("pointerup", endBookGesture, true);
+  elements.sceneView.addEventListener("pointercancel", endBookGesture, true);
+  addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || elements.sceneView.hidden) return;
+    if (elements.sceneView.classList.contains("drawer-open")) setBookDrawer(false);
+    else closeBookToShelf();
+  });
   elements.penTool.addEventListener("click", () => setTool("pen"));
   elements.eraserTool.addEventListener("click", () => setTool("eraser"));
   elements.sendNow.addEventListener("click", commitPage);
@@ -204,7 +222,11 @@ function showArchive() {
   state.assets = null;
   elements.sceneView.hidden = true;
   elements.archiveView.hidden = false;
-  elements.sceneView.classList.remove("is-revealed");
+  elements.sceneView.classList.remove("is-revealed", "is-closing-book", "is-pinching", "drawer-open");
+  elements.bookDrawer.setAttribute("aria-hidden", "true");
+  elements.bookDrawer.inert = true;
+  elements.toggleBookDrawer.setAttribute("aria-expanded", "false");
+  state.closing = false;
   document.title = "会回应的藏书阁";
 }
 
@@ -215,6 +237,9 @@ function showScene(persona, assets) {
   state.history = historyStore.load(persona.id);
   elements.archiveView.hidden = true;
   elements.sceneView.hidden = false;
+  elements.sceneView.classList.remove("is-closing-book", "is-pinching", "drawer-open");
+  elements.bookDrawer.inert = true;
+  state.closing = false;
   document.title = `${persona.bookTitle || persona.name} · 会回应的藏书阁`;
 
   elements.sceneBackdrop.style.backgroundImage = assets.background ? `url("${assets.background}")` : assets.backgroundCss;
@@ -239,21 +264,24 @@ function showScene(persona, assets) {
   elements.mobilePersonaField.textContent = `${persona.field} · ${persona.years}`;
   elements.sceneLocation.textContent = assets.sceneLocation || persona.latinName;
   elements.sceneTitle.textContent = assets.sceneTitle || persona.medium;
+  const volumeNumber = allPersonas().findIndex((book) => book.id === persona.id) + 1;
+  elements.activeBookVolume.textContent = `VOL. ${String(volumeNumber).padStart(2, "0")}`;
+  elements.activeBookTitle.textContent = persona.bookTitle || persona.name;
+  elements.activeBookOwner.textContent = persona.name;
   elements.paperObject.classList.remove("book-unfolding");
   elements.paperObject.dataset.bookTitle = persona.bookTitle || persona.name;
-  elements.paperObject.style.setProperty("--book-cover", assets.coverColor || bookCoverColor(persona.bookTone));
-  elements.paperObject.style.setProperty("--book-accent", assets.coverAccent || "#b9ad61");
-  elements.paperImage.hidden = !assets.paper;
-  elements.paperObject.style.background = assets.paper ? "" : assets.paperBackground;
-  elements.paperObject.style.border = assets.paper ? "" : assets.paperBorder;
-  if (assets.paper) {
-    elements.paperImage.src = assets.paper;
-    elements.paperImage.alt = `${persona.name}的空白${persona.medium.split(" · ")[0]}`;
-  } else {
-    elements.paperImage.removeAttribute("src");
-    elements.paperImage.alt = "";
+  const coverColor = assets.coverColor || bookCoverColor(persona.bookTone);
+  const coverAccent = assets.coverAccent || "#b9ad61";
+  for (const target of [elements.sceneView, elements.paperObject]) {
+    target.style.setProperty("--book-cover", coverColor);
+    target.style.setProperty("--book-accent", coverAccent);
   }
-  elements.paperObject.style.aspectRatio = String(assets.paperAspectRatio || 1);
+  elements.paperImage.hidden = true;
+  elements.paperImage.removeAttribute("src");
+  elements.paperImage.alt = "";
+  elements.paperObject.style.background = "";
+  elements.paperObject.style.border = "";
+  elements.paperObject.style.aspectRatio = "auto";
   elements.writingSurface.style.setProperty("--write-x", `${assets.writingArea.x * 100}%`);
   elements.writingSurface.style.setProperty("--write-y", `${assets.writingArea.y * 100}%`);
   elements.writingSurface.style.setProperty("--write-width", `${assets.writingArea.width * 100}%`);
@@ -275,6 +303,71 @@ function showScene(persona, assets) {
   requestAnimationFrame(setupSceneEngines);
   setStatus("等待书写");
   setTool("pen");
+}
+
+function toggleBookDrawer() {
+  setBookDrawer(!elements.sceneView.classList.contains("drawer-open"));
+}
+
+function setBookDrawer(open) {
+  if (elements.sceneView.hidden || state.closing) return;
+  elements.sceneView.classList.toggle("drawer-open", Boolean(open));
+  elements.bookDrawer.setAttribute("aria-hidden", String(!open));
+  elements.bookDrawer.inert = !open;
+  elements.toggleBookDrawer.setAttribute("aria-expanded", String(Boolean(open)));
+  if (open) elements.closeBookDrawer.focus({ preventScroll: true });
+}
+
+function trackBookGesture(event) {
+  if (event.pointerType !== "touch" || elements.sceneView.hidden || state.closing) return;
+  const point = { id: event.pointerId, x: event.clientX, y: event.clientY };
+  if (event.type === "pointerdown") {
+    state.touchPoints.set(event.pointerId, point);
+    if (state.touchPoints.size === 1 && point.x <= 34) state.edgePullStart = point;
+    if (state.touchPoints.size === 2) {
+      state.pinchStart = [...state.touchPoints.values()].map(({ id, x, y }) => ({ id, x, y }));
+      state.edgePullStart = null;
+      elements.sceneView.classList.add("is-pinching");
+      clearTimeout(state.idleTimer);
+      state.ink?.cancelActiveStroke?.();
+      state.ink?.setEnabled(false);
+    }
+    return;
+  }
+
+  if (!state.touchPoints.has(event.pointerId)) return;
+  state.touchPoints.set(event.pointerId, point);
+  if (state.pinchStart?.length === 2 && state.touchPoints.size >= 2) {
+    const current = state.pinchStart.map((start) => state.touchPoints.get(start.id)).filter(Boolean);
+    if (shouldCloseFromPinch(state.pinchStart, current)) closeBookToShelf();
+    return;
+  }
+  if (state.edgePullStart && !elements.sceneView.classList.contains("drawer-open") && shouldOpenDrawerFromEdge(state.edgePullStart, point)) {
+    state.edgePullStart = null;
+    setBookDrawer(true);
+  }
+}
+
+function endBookGesture(event) {
+  if (event.pointerType !== "touch") return;
+  state.touchPoints.delete(event.pointerId);
+  if (state.touchPoints.size < 2) {
+    state.pinchStart = null;
+    elements.sceneView.classList.remove("is-pinching");
+    if (!state.busy && !state.closing) state.ink?.setEnabled(true);
+  }
+  if (!state.touchPoints.size) state.edgePullStart = null;
+}
+
+function closeBookToShelf() {
+  if (elements.sceneView.hidden || state.closing) return;
+  clearTimeout(state.idleTimer);
+  state.ink?.setEnabled(false);
+  setBookDrawer(false);
+  state.closing = true;
+  elements.sceneView.classList.add("is-closing-book");
+  elements.sceneView.classList.remove("is-pinching");
+  setTimeout(() => navigateTo("/"), reducedMotion ? 0 : 720);
 }
 
 function setupSceneEngines() {
@@ -333,6 +426,9 @@ function teardownScene() {
   state.ink = null;
   state.reply = null;
   state.busy = false;
+  state.touchPoints.clear();
+  state.pinchStart = null;
+  state.edgePullStart = null;
   elements.loadingNote.hidden = true;
 }
 

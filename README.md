@@ -2,13 +2,15 @@
 
 一个以手写为入口的魔法书架式互动 Web 应用。九本内置藏书连接六位思想者与三个故事物件；用户也能装订自己的书，写下人物身份、性格、口吻与第一句话。视觉模型识别鼠标、触屏或 Apple Pencil 笔迹后，会按照每本书独立的人物边界生成短回信。
 
-在线演示：[timeless-minds-teng.ivory-titan-4292.chatgpt.site](https://timeless-minds-teng.ivory-titan-4292.chatgpt.site)
+在线演示：[timeless-minds-teng.ymfreemantiffany8or1.chatgpt.site](https://timeless-minds-teng.ymfreemantiffany8or1.chatgpt.site)
 
 在线演示默认不包含任何 API Key。未配置模型时会进入演示模式。`chatgpt.site` 在中国大陆网络环境下不能保证免 VPN 访问；需要面向国内用户时，应将本项目部署到国内可达的域名和托管服务。
 
 ## 产品能力
 
-- 三层木质书架、九本内置藏书和封面翻页进入动画
+- 木质书架、九本书脊朝向读者的内置藏书，以及抽书、翻页、合书回架动画
+- 所有书籍统一进入全屏羊皮纸书写面；右侧书脊显示当前书名，左缘可拉出人物、当前页、历史与记忆
+- iPad 双指向内收拢可合上当前书籍并返回书架；左边缘右拉可展开当前书籍内容
 - 六位历史人物，以及魔镜、汤姆日记和人皮纸三个非官方故事化入口
 - 自定义添加书籍：书名、人物身份、性格、回答口吻、第一句话、封面颜色与徽记
 - Canvas 鼠标、触控和 Apple Pencil 输入
@@ -122,4 +124,4 @@ docs/                       产品设计和实施计划
 
 ## 致谢
 
-产品机制参考了 `MaximeRivest/riddle` 的手写交互思路，但人物系统、场景、前后端实现和素材处理均为本项目的独立实现。
+产品机制参考了 `MaximeRivest/riddle` 与 `Trentct/Riddle-iPad` 的手写交互思路，并参考用户提供的抖音演示视频对“停笔吸墨、逐笔回信、全屏纸面”的节奏做了重新设计；书脊书架、双指合书、人物系统、前后端实现和素材处理均为本项目的独立实现。

@@ -13,11 +13,11 @@
     <meta property="og:title" content="会回应的藏书阁" />
     <meta property="og:description" content="打开一本会回应你的书" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://timeless-minds-teng.ivory-titan-4292.chatgpt.site/og.png" />
+    <meta property="og:image" content="https://timeless-minds-teng.ymfreemantiffany8or1.chatgpt.site/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="会回应的藏书阁" />
     <meta name="twitter:description" content="打开一本会回应你的书" />
-    <meta name="twitter:image" content="https://timeless-minds-teng.ivory-titan-4292.chatgpt.site/og.png" />
+    <meta name="twitter:image" content="https://timeless-minds-teng.ymfreemantiffany8or1.chatgpt.site/og.png" />
     <title>会回应的藏书阁</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml" />
@@ -32,7 +32,7 @@
           <div>
             <p class="eyebrow">The Cabinet of Answering Books</p>
             <h1 id="archiveTitle">会回应的藏书阁</h1>
-            <p class="archive-intro">九本书在等待一位读者。轻触封面，它会翻开属于自己的纸页。</p>
+            <p class="archive-intro">九本书以书脊朝向读者。抽出一本，它会在掌心铺成一整张会回应的羊皮纸。</p>
           </div>
           <div class="archive-header-actions">
             <button class="text-button" id="createBook" type="button">＋ 新建一本书</button>
@@ -40,7 +40,7 @@
           </div>
         </header>
 
-        <div class="archive-rule" aria-hidden="true"><span>THE FORBIDDEN SHELF</span><span>9 VOLUMES</span></div>
+        <div class="archive-rule" aria-hidden="true"><span>THE FORBIDDEN SHELF</span><span>抽出书脊 · 双指合书</span></div>
         <div class="persona-list" id="personaList" aria-live="polite"></div>
 
         <footer class="archive-footer">
@@ -62,20 +62,55 @@
         </header>
 
         <div class="scene-layout">
-          <aside class="persona-rail" aria-label="人物档案">
-            <button class="back-button" id="backToArchive" type="button">← 返回档案墙</button>
-            <p class="rail-index" id="personaIndex">ARCHIVE 01</p>
-            <div class="persona-portrait-frame">
-              <img class="persona-portrait" id="personaPortrait" alt="" />
-              <span class="persona-sigil" id="personaSigil" aria-hidden="true"></span>
-            </div>
-            <p class="persona-latin" id="personaLatin"></p>
-            <h2 id="personaName"></h2>
-            <p class="persona-years" id="personaYears"></p>
-            <p class="persona-field" id="personaField"></p>
-            <div class="rail-divider"></div>
-            <p class="persona-medium" id="personaMedium"></p>
+          <aside class="book-drawer" id="bookDrawer" aria-label="当前书籍内容" aria-hidden="true">
+            <header class="drawer-header">
+              <div><p class="eyebrow">CURRENT VOLUME</p><strong>当前这本书</strong></div>
+              <button class="drawer-close" id="closeBookDrawer" type="button" aria-label="收起当前书籍内容">×</button>
+            </header>
+
+            <section class="persona-rail" aria-label="人物档案">
+              <button class="back-button" id="backToArchive" type="button">合上并放回书架</button>
+              <p class="rail-index" id="personaIndex">ARCHIVE 01</p>
+              <div class="persona-portrait-frame">
+                <img class="persona-portrait" id="personaPortrait" alt="" />
+                <span class="persona-sigil" id="personaSigil" aria-hidden="true"></span>
+              </div>
+              <p class="persona-latin" id="personaLatin"></p>
+              <h2 id="personaName"></h2>
+              <p class="persona-years" id="personaYears"></p>
+              <p class="persona-field" id="personaField"></p>
+              <div class="rail-divider"></div>
+              <p class="persona-medium" id="personaMedium"></p>
+            </section>
+
+            <section class="context-rail" aria-label="思想与连接状态">
+              <div class="context-block">
+                <p class="section-label">这本书记得的内容</p>
+                <ol class="keyword-list" id="keywordList"></ol>
+              </div>
+              <div class="context-block metrics-block">
+                <p class="section-label">当前纸页</p>
+                <dl class="metrics">
+                  <div><dt>笔画</dt><dd id="metricWidth">3.0</dd></div>
+                  <div><dt>输入</dt><dd id="metricInput">等待</dd></div>
+                </dl>
+              </div>
+              <div class="context-block archive-actions">
+                <p class="section-label">侧页内容</p>
+                <button class="text-button full-width" id="openHistory" type="button">历史档案 · 0</button>
+                <button class="text-button full-width" id="openReplySettings" type="button">人物设定与长期记忆</button>
+              </div>
+              <div class="context-block connection-block">
+                <p class="section-label">连接状态</p>
+                <p id="modeCopy">未配置 API 时使用人物演示回复。</p>
+                <button class="text-button full-width" id="openApiSettings" type="button">配置 API</button>
+              </div>
+            </section>
           </aside>
+
+          <button class="drawer-pull" id="toggleBookDrawer" type="button" aria-expanded="false" aria-controls="bookDrawer">
+            <span>拉开侧页</span>
+          </button>
 
           <main class="writing-column">
             <div class="writing-heading">
@@ -107,29 +142,13 @@
             </nav>
           </main>
 
-          <aside class="context-rail" aria-label="思想与连接状态">
-            <div class="context-block">
-              <p class="section-label">思想坐标</p>
-              <ol class="keyword-list" id="keywordList"></ol>
-            </div>
-            <div class="context-block metrics-block">
-              <p class="section-label">笔迹采样</p>
-              <dl class="metrics">
-                <div><dt>笔画</dt><dd id="metricWidth">3.0</dd></div>
-                <div><dt>输入</dt><dd id="metricInput">等待</dd></div>
-              </dl>
-            </div>
-            <div class="context-block archive-actions">
-              <p class="section-label">对话档案</p>
-              <button class="text-button full-width" id="openHistory" type="button">历史档案 · 0</button>
-              <button class="text-button full-width" id="openReplySettings" type="button">调整回复方式</button>
-            </div>
-            <div class="context-block connection-block">
-              <p class="section-label">连接状态</p>
-              <p id="modeCopy">未配置 API 时使用人物演示回复。</p>
-              <button class="text-button full-width" id="openApiSettings" type="button">配置 API</button>
-            </div>
+          <aside class="book-edge" aria-label="当前书籍">
+            <span id="activeBookVolume">VOL. 01</span>
+            <strong id="activeBookTitle">当前书名</strong>
+            <small id="activeBookOwner">书中人物</small>
           </aside>
+
+          <div class="pinch-hint" id="pinchHint" aria-hidden="true">双指向内收拢 · 合上书籍</div>
         </div>
       </section>
     </div>

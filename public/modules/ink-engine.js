@@ -100,6 +100,16 @@ export class InkEngine {
     this.enabled = Boolean(enabled);
   }
 
+  cancelActiveStroke() {
+    this.cancelFrame();
+    if (this.activePointerId !== null) this.canvas.releasePointerCapture?.(this.activePointerId);
+    this.currentStroke = null;
+    this.pendingPoints = [];
+    this.activePointerId = null;
+    this.activePointerType = null;
+    this.redraw();
+  }
+
   setTool(tool) {
     this.tool = tool === "eraser" ? "eraser" : "pen";
   }
