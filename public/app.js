@@ -53,7 +53,8 @@ const elements = Object.fromEntries([
   "createBookForm", "closeCreateBook", "customBookTitle", "customPersonaName", "customIdentity",
   "customPersonality", "customOpeningLine", "customBookTone", "customSigil", "createBookMessage",
   "bookDrawer", "toggleBookDrawer", "closeBookDrawer", "activeBookVolume", "activeBookTitle",
-  "activeBookOwner", "pinchHint"
+  "activeBookOwner", "pinchHint", "openingSequence", "openingBookSigil", "openingBookTitle",
+  "openingBookLatin"
 ].map((id) => [id, document.getElementById(id)]));
 
 const state = {
@@ -68,7 +69,8 @@ const state = {
   touchPoints: new Map(),
   pinchStart: null,
   edgePullStart: null,
-  closing: false
+  closing: false,
+  openingTimer: null
 };
 
 renderArchive();
@@ -139,7 +141,7 @@ function openBook(personaId, button) {
   if (button.classList.contains("is-opening")) return;
   button.classList.add("is-opening");
   elements.archiveView.classList.add("is-opening-book");
-  const delay = reducedMotion ? 0 : 620;
+  const delay = reducedMotion ? 0 : 1_050;
   setTimeout(() => {
     elements.archiveView.classList.remove("is-opening-book");
     button.classList.remove("is-opening");
@@ -222,7 +224,7 @@ function showArchive() {
   state.assets = null;
   elements.sceneView.hidden = true;
   elements.archiveView.hidden = false;
-  elements.sceneView.classList.remove("is-revealed", "is-closing-book", "is-pinching", "drawer-open");
+  elements.sceneView.classList.remove("is-revealed", "is-book-opening", "is-closing-book", "is-pinching", "drawer-open");
   elements.bookDrawer.setAttribute("aria-hidden", "true");
   elements.bookDrawer.inert = true;
   elements.toggleBookDrawer.setAttribute("aria-expanded", "false");
@@ -237,7 +239,7 @@ function showScene(persona, assets) {
   state.history = historyStore.load(persona.id);
   elements.archiveView.hidden = true;
   elements.sceneView.hidden = false;
-  elements.sceneView.classList.remove("is-closing-book", "is-pinching", "drawer-open");
+  elements.sceneView.classList.remove("is-book-opening", "is-closing-book", "is-pinching", "drawer-open");
   elements.bookDrawer.inert = true;
   state.closing = false;
   document.title = `${persona.bookTitle || persona.name} · 会回应的藏书阁`;
@@ -268,6 +270,9 @@ function showScene(persona, assets) {
   elements.activeBookVolume.textContent = `VOL. ${String(volumeNumber).padStart(2, "0")}`;
   elements.activeBookTitle.textContent = persona.bookTitle || persona.name;
   elements.activeBookOwner.textContent = persona.name;
+  elements.openingBookSigil.textContent = assets.sigil || persona.sigil || persona.name.slice(0, 1);
+  elements.openingBookTitle.textContent = persona.bookTitle || persona.name;
+  elements.openingBookLatin.textContent = persona.latinName;
   elements.paperObject.classList.remove("book-unfolding");
   elements.paperObject.dataset.bookTitle = persona.bookTitle || persona.name;
   const coverColor = assets.coverColor || bookCoverColor(persona.bookTone);
@@ -297,8 +302,11 @@ function showScene(persona, assets) {
 
   if (assets.paper) elements.paperImage.addEventListener("error", showPaperFallback, { once: true });
   requestAnimationFrame(() => {
-    elements.sceneView.classList.add("is-revealed");
-    elements.paperObject.classList.add("book-unfolding");
+    elements.sceneView.classList.add("is-revealed", "is-book-opening");
+    state.openingTimer = setTimeout(() => {
+      elements.sceneView.classList.remove("is-book-opening");
+      state.openingTimer = null;
+    }, reducedMotion ? 0 : 2_550);
   });
   requestAnimationFrame(setupSceneEngines);
   setStatus("等待书写");
@@ -367,7 +375,7 @@ function closeBookToShelf() {
   state.closing = true;
   elements.sceneView.classList.add("is-closing-book");
   elements.sceneView.classList.remove("is-pinching");
-  setTimeout(() => navigateTo("/"), reducedMotion ? 0 : 720);
+  setTimeout(() => navigateTo("/"), reducedMotion ? 0 : 1_450);
 }
 
 function setupSceneEngines() {
@@ -403,7 +411,7 @@ function setupSceneEngines() {
   state.resizeObserver.observe(elements.writingSurface);
   resize();
   if (state.persona.openingLine) {
-    const openingDelay = reducedMotion ? 10 : 920;
+    const openingDelay = reducedMotion ? 10 : 2_650;
     setTimeout(() => {
       if (!state.reply || state.busy || state.ink?.hasInk()) return;
       state.reply.show(state.persona.openingLine, {
@@ -419,6 +427,7 @@ function setupSceneEngines() {
 
 function teardownScene() {
   clearTimeout(state.idleTimer);
+  clearTimeout(state.openingTimer);
   state.resizeObserver?.disconnect();
   state.ink?.destroy();
   state.reply?.clear();
@@ -429,6 +438,7 @@ function teardownScene() {
   state.touchPoints.clear();
   state.pinchStart = null;
   state.edgePullStart = null;
+  state.openingTimer = null;
   elements.loadingNote.hidden = true;
 }
 
