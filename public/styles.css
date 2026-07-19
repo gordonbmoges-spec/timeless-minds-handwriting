@@ -2165,12 +2165,10 @@ body {
     linear-gradient(rgba(15,8,4,.04),rgba(8,4,2,.14)),
     var(--opening-cover-image) center / contain no-repeat,
     #120b07;
-  box-shadow:inset 0 0 0 1px rgba(224,194,130,.25),inset 0 0 34px rgba(0,0,0,.16);
+  box-shadow:none;
 }
 .scene-view.has-generated-cover .pageflip-cover-face:not(.pageflip-back-cover)::after {
-  inset:2.5%;
-  border-color:rgba(229,206,155,.14);
-  box-shadow:none;
+  display:none;
 }
 .scene-view.has-generated-cover .opening-cover-sigil { display:none; }
 .scene-view.has-generated-cover .pageflip-cover-face strong {
@@ -2332,7 +2330,7 @@ body {
   transform:translate3d(0,0,0) scale(1);
   transform-origin:0 0;
   will-change:transform,opacity,filter;
-  transition:opacity .28s ease;
+  transition:opacity .72s ease;
 }
 .book-transition-portal img {
   position:absolute;
@@ -2364,10 +2362,10 @@ body {
   transform-origin:50% 100%;
 }
 .book-transition-portal.is-travelling {
-  animation:bookPortalTravel 2.15s linear both;
+  animation:bookPortalTravel 2.05s linear both;
 }
 .book-transition-portal.is-travelling strong {
-  animation:bookPortalLabelGrow 2.15s linear both;
+  animation:bookPortalLabelGrow 2.05s linear both;
 }
 .book-transition-portal.is-handing-off { opacity:0; }
 @keyframes bookPortalTravel {
@@ -2430,24 +2428,8 @@ body {
   .persona-list .shelf-lower { bottom:calc(36.111vh - 3.125vw + 8px); }
 }
 
-.book-transition-portal {
-  perspective:1400px;
-  transform-style:preserve-3d;
-}
-.book-transition-portal::before {
-  content:"";
-  position:absolute;
-  z-index:-1;
-  top:2.2%;
-  right:-9px;
-  bottom:2.2%;
-  width:13px;
-  border-radius:0 4px 4px 0;
-  background:repeating-linear-gradient(0deg,#d8bd83 0 2px,#a98551 2px 3px,#ead29b 3px 5px);
-  box-shadow:7px 7px 13px rgba(0,0,0,.5),inset -2px 0 3px rgba(70,39,14,.35);
-  opacity:0;
-  transform:translateZ(-3px);
-}
+.book-transition-portal { transform-style:flat; }
+.book-transition-portal::before { display:none; }
 .book-transition-portal::after {
   content:"";
   position:absolute;
@@ -2462,38 +2444,46 @@ body {
   opacity:.32;
   transform:rotateX(72deg) scale(.72);
 }
-.book-transition-portal img { backface-visibility:hidden;transform:translateZ(2px); }
-.book-transition-portal.is-travelling::before { animation:portalThicknessIn 2.15s ease both; }
-.book-transition-portal.is-travelling::after { animation:portalShadowIn 2.15s ease both; }
-@keyframes portalThicknessIn { 0%,10%{opacity:0} 38%,100%{opacity:.96} }
+.book-transition-portal img { backface-visibility:hidden;transform:none; }
+.book-transition-portal.is-travelling::after { animation:portalShadowIn 2.05s ease both; }
 @keyframes portalShadowIn {
   0%{opacity:.25;transform:rotateX(72deg) scale(.62)}
-  100%{opacity:.82;transform:rotateX(72deg) scale(1.08)}
+  72%{opacity:.58;transform:rotateX(72deg) scale(.9)}
+  100%{opacity:.68;transform:rotateX(72deg) scale(1)}
 }
 @keyframes bookPortalTravel {
   0% {
     filter:none;
-    transform:translate3d(0,0,0) scale(1) rotateY(0) rotateX(0);
-    animation-timing-function:cubic-bezier(.22,.02,.34,1);
+    transform:translate3d(0,0,0) scale(1);
   }
-  22% {
+  18% {
     filter:drop-shadow(7px 10px 7px rgba(0,0,0,.72));
-    transform:translate3d(0,-6px,18px) scale(1.03) rotateY(-3deg) rotateX(1deg);
-    animation-timing-function:cubic-bezier(.18,.72,.14,1);
+    transform:translate3d(0,-5px,0) scale(1.025);
+  }
+  48% {
+    filter:blur(.2px) brightness(.99) drop-shadow(11px 16px 10px rgba(0,0,0,.69));
+    transform:translate3d(var(--portal-x-mid),var(--portal-y-mid),0) scale(var(--portal-scale-mid));
+  }
+  76% {
+    filter:blur(.7px) brightness(.96) drop-shadow(17px 24px 15px rgba(0,0,0,.66));
+    transform:translate3d(var(--portal-x-late),var(--portal-y-late),0) scale(var(--portal-scale-late));
   }
   100% {
-    filter:drop-shadow(24px 32px 20px rgba(0,0,0,.62));
-    transform:translate3d(var(--portal-x),var(--portal-y),48px) scale(var(--portal-scale)) rotateY(-8deg) rotateX(2deg);
+    filter:blur(1.1px) brightness(.9) drop-shadow(22px 30px 18px rgba(0,0,0,.6));
+    transform:translate3d(var(--portal-x),var(--portal-y),0) scale(var(--portal-scale)) rotateY(-2deg);
   }
 }
 
 .scene-view.is-handoff-opening.is-book-opening .opening-book-stage {
+  width:calc(var(--opening-closed-width, 500px) * 2);
   transform-style:preserve-3d;
   animation:handoffBookStage3d 4.3s cubic-bezier(.18,.74,.15,1) both!important;
 }
 @keyframes handoffBookStage3d {
-  0%,9% { opacity:0;filter:none;transform:translateX(-25%) rotateY(-8deg) rotateX(2deg); }
-  13%,38% { opacity:1;filter:none;transform:translateX(-25%) rotateY(-8deg) rotateX(2deg); }
+  0%,3% { opacity:0;filter:blur(1.1px) brightness(.9);transform:translateX(-25%) rotateY(-2deg); }
+  9% { opacity:.22;filter:blur(.8px) brightness(.92);transform:translateX(-25%) rotateY(-2deg); }
+  17% { opacity:.74;filter:blur(.3px) brightness(.97);transform:translateX(-25%) rotateY(-1deg); }
+  25%,38% { opacity:1;filter:none;transform:translateX(-25%) rotateY(0); }
   64%,88% { opacity:1;filter:none;transform:translateX(0) rotateY(0) rotateX(0); }
   100% { opacity:0;filter:blur(.6px);transform:translateX(0) translateY(-1.5vh) scale(1.025); }
 }
@@ -2529,20 +2519,17 @@ body {
   0%{opacity:0;filter:blur(4px) brightness(.48);transform:translate3d(0,8px,-90px) scale(.94)}
   100%{opacity:1;filter:none;transform:translate3d(0,0,0) scale(1)}
 }
-.book-return-portal { filter:drop-shadow(24px 32px 20px rgba(0,0,0,.62));transform:rotateY(-8deg) rotateX(2deg); }
-.book-return-portal::before { opacity:.96; }
+.book-return-portal { filter:blur(1px) brightness(.9) drop-shadow(20px 28px 18px rgba(0,0,0,.62));transform:none; }
 .book-return-portal::after { opacity:.82;transform:rotateX(72deg) scale(1.08); }
 .book-return-portal.is-returning {
   animation:bookPortalReturn 1.48s cubic-bezier(.42,0,.18,1) both;
 }
 .book-return-portal.is-returning strong { animation:bookPortalLabelReturn 1.48s ease both; }
-.book-return-portal.is-returning::before { animation:portalThicknessOut 1.48s ease both; }
 .book-return-portal.is-returning::after { animation:portalShadowOut 1.48s ease both; }
 @keyframes bookPortalReturn {
-  0%{filter:drop-shadow(24px 32px 20px rgba(0,0,0,.62));transform:translate3d(0,0,48px) scale(1) rotateY(-8deg) rotateX(2deg)}
-  72%{filter:drop-shadow(9px 13px 8px rgba(0,0,0,.7));transform:translate3d(var(--return-x),calc(var(--return-y) - 7px),12px) scale(var(--return-scale)) rotateY(-3deg) rotateX(1deg)}
-  100%{filter:drop-shadow(5px 7px 5px rgba(0,0,0,.72));transform:translate3d(var(--return-x),var(--return-y),0) scale(var(--return-scale)) rotateY(0) rotateX(0)}
+  0%{filter:blur(1px) brightness(.9) drop-shadow(20px 28px 18px rgba(0,0,0,.62));transform:translate3d(0,0,0) scale(1)}
+  72%{filter:blur(.35px) brightness(.96) drop-shadow(9px 13px 8px rgba(0,0,0,.7));transform:translate3d(var(--return-x),calc(var(--return-y) - 7px),0) scale(var(--return-scale))}
+  100%{filter:drop-shadow(5px 7px 5px rgba(0,0,0,.72));transform:translate3d(var(--return-x),var(--return-y),0) scale(var(--return-scale))}
 }
 @keyframes bookPortalLabelReturn { to{font-size:var(--return-label-end)} }
-@keyframes portalThicknessOut { 0%,70%{opacity:.96} 100%{opacity:0} }
 @keyframes portalShadowOut { to{opacity:.25;transform:rotateX(72deg) scale(.62)} }

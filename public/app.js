@@ -206,7 +206,7 @@ function openBook(personaId, button) {
   });
   button.classList.add("is-opening");
   elements.archiveView.classList.add("is-opening-book");
-  const delay = reducedMotion ? 0 : personaId === "magic-mirror" ? 1_260 : hasBookPortal ? 1_550 : 1_720;
+  const delay = reducedMotion ? 0 : personaId === "magic-mirror" ? 1_260 : hasBookPortal ? 2_050 : 1_720;
   setTimeout(() => {
     navigateTo(personaPath(personaId));
   }, delay);
@@ -238,6 +238,12 @@ function createBookTransitionPortal(button, persona) {
   portal.style.setProperty("--portal-x", `${targetLeft - rect.left}px`);
   portal.style.setProperty("--portal-y", `${targetTop - rect.top}px`);
   portal.style.setProperty("--portal-scale", String(scale));
+  portal.style.setProperty("--portal-x-mid", `${(targetLeft - rect.left) * 0.26}px`);
+  portal.style.setProperty("--portal-y-mid", `${(targetTop - rect.top) * 0.26}px`);
+  portal.style.setProperty("--portal-scale-mid", String(1 + (scale - 1) * 0.26));
+  portal.style.setProperty("--portal-x-late", `${(targetLeft - rect.left) * 0.7}px`);
+  portal.style.setProperty("--portal-y-late", `${(targetTop - rect.top) * 0.7}px`);
+  portal.style.setProperty("--portal-scale-late", String(1 + (scale - 1) * 0.7));
   portal.style.setProperty("--portal-label-end", `${Math.max(6.5, 42 / scale)}px`);
 
   const cover = document.createElement("img");
@@ -336,8 +342,8 @@ function finishBookReturnToShelf() {
 function handOffBookTransitionPortal() {
   if (!state.bookPortal) return;
   const portal = state.bookPortal;
-  state.bookPortalTimers.push(setTimeout(() => portal.classList.add("is-handing-off"), 500));
-  state.bookPortalTimers.push(setTimeout(clearBookTransitionPortal, 840));
+  state.bookPortalTimers.push(setTimeout(() => portal.classList.add("is-handing-off"), 140));
+  state.bookPortalTimers.push(setTimeout(clearBookTransitionPortal, 940));
 }
 
 function resetArchiveSelection() {
@@ -450,6 +456,8 @@ function showScene(persona, assets) {
   const generatedCoverImage = GENERATED_COVER_IMAGES[persona.id];
   elements.sceneView.classList.toggle("has-generated-cover", Boolean(generatedCoverImage));
   elements.sceneView.style.setProperty("--opening-cover-image", generatedCoverImage ? `url("${generatedCoverImage}")` : "none");
+  const openingRatio = state.bookOrigin?.personaId === persona.id ? state.bookOrigin.ratio : 2 / 3;
+  elements.sceneView.style.setProperty("--opening-closed-width", `${bookPortalTarget(openingRatio).width}px`);
   elements.bookDrawer.inert = true;
   state.closing = false;
   const isMirror = persona.id === "magic-mirror";
@@ -649,8 +657,8 @@ function setupOpeningFlipbook() {
   state.pageFlip = pageFlip;
   pageFlip.on("init", () => {
     if (state.pageFlip !== pageFlip || state.closing) return;
-    state.flipTimers.push(setTimeout(() => pageFlip.flipNext("top"), 520));
-    state.flipTimers.push(setTimeout(() => pageFlip.flipNext("bottom"), 1_950));
+    state.flipTimers.push(setTimeout(() => pageFlip.flipNext("top"), 940));
+    state.flipTimers.push(setTimeout(() => pageFlip.flipNext("bottom"), 2_230));
   });
   pageFlip.loadFromHTML(pages);
 }
