@@ -4,13 +4,13 @@ import { requestPersonaReply } from "/modules/ai-client.js";
 import { shouldCloseFromPinch, shouldOpenDrawerFromEdge } from "/modules/book-gestures.js";
 import { createHistoryStore } from "/modules/history-store.js";
 import { createCustomBookStore } from "/modules/custom-books.js";
+import { createPersonaMemoryStore } from "/modules/persona-memory-store.js";
 import { InkEngine } from "/modules/ink-engine.js";
 import { ReplyPresenter } from "/modules/reply-presenter.js";
 import { navigateTo, personaPath, routeFromPath } from "/modules/router.js";
 
 const API_SETTINGS_KEY = "ink-diary-api-settings-v1";
 const REPLY_PREFERENCE_PREFIX = "minds-archive-reply-preference-v1-";
-const PERSONA_MEMORY_PREFIX = "minds-archive-memory-v1-";
 const IDLE_SEND_MS = 1_800;
 const HISTORICAL_PERSONA_IDS = new Set(["confucius", "socrates", "da-vinci", "shakespeare", "jung", "einstein"]);
 const GENERATED_COVER_IMAGES = Object.freeze({
@@ -25,6 +25,7 @@ const GENERATED_COVER_IMAGES = Object.freeze({
 });
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const historyStore = createHistoryStore();
+const personaMemoryStore = createPersonaMemoryStore();
 const customBookStore = createCustomBookStore();
 let customBooks = customBookStore.load();
 let apiSessionConfig = null;
@@ -85,7 +86,9 @@ const state = {
   pageFlip: null,
   flipTimers: [],
   bookPortal: null,
-  bookPortalTimers: []
+  bookPortalTimers: [],
+  bookOrigin: null,
+  returningBook: null
 };
 
 renderArchive();
@@ -216,11 +219,13 @@ function createBookTransitionPortal(button, persona) {
 
   const rect = button.getBoundingClientRect();
   if (!rect.width || !rect.height) return false;
+  state.bookOrigin = {
+    personaId: persona.id,
+    ratio: rect.width / rect.height
+  };
   const ratio = rect.width / rect.height;
-  const targetWidth = Math.min(500, innerWidth * 0.5, innerHeight * 0.9 * ratio);
-  const targetHeight = targetWidth / ratio;
-  const targetLeft = (innerWidth - targetWidth) / 2;
-  const targetTop = (innerHeight - targetHeight) / 2;
+  const target = bookPortalTarget(ratio);
+  const { width: targetWidth, height: targetHeight, left: targetLeft, top: targetTop } = target;
   const scale = targetWidth / rect.width;
 
   const portal = document.createElement("div");
@@ -256,6 +261,76 @@ function clearBookTransitionPortal() {
   for (const source of elements.personaList.querySelectorAll(".is-portal-source")) {
     source.classList.remove("is-portal-source");
   }
+}
+
+function bookPortalTarget(ratio) {
+  const width = Math.min(500, innerWidth * 0.5, innerHeight * 0.9 * ratio);
+  const height = width / ratio;
+  return {
+    width,
+    height,
+    left: (innerWidth - width) / 2,
+    top: (innerHeight - height) / 2
+  };
+}
+
+function createBookReturnPortal(persona) {
+  const source = GENERATED_COVER_IMAGES[persona?.id];
+  if (!source) return false;
+  clearBookTransitionPortal();
+  const ratio = state.bookOrigin?.personaId === persona.id ? state.bookOrigin.ratio : 2 / 3;
+  const rect = bookPortalTarget(ratio);
+  const portal = document.createElement("div");
+  portal.className = "book-transition-portal book-return-portal";
+  portal.setAttribute("aria-hidden", "true");
+  portal.style.left = `${rect.left}px`;
+  portal.style.top = `${rect.top}px`;
+  portal.style.width = `${rect.width}px`;
+  portal.style.height = `${rect.height}px`;
+
+  const cover = document.createElement("img");
+  cover.src = source;
+  cover.alt = "";
+  const title = document.createElement("strong");
+  title.textContent = persona.name;
+  portal.append(cover, title);
+  document.body.append(portal);
+  state.bookPortal = portal;
+  state.returningBook = { personaId: persona.id };
+  return true;
+}
+
+function finishBookReturnToShelf() {
+  const returning = state.returningBook;
+  const portal = state.bookPortal;
+  if (!returning || !portal) return;
+  const target = elements.personaList.querySelector(`[data-persona-id="${returning.personaId}"]`);
+  if (!target) {
+    state.returningBook = null;
+    clearBookTransitionPortal();
+    return;
+  }
+  const sourceRect = portal.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  if (!sourceRect.width || !targetRect.width) {
+    state.returningBook = null;
+    clearBookTransitionPortal();
+    return;
+  }
+  target.classList.add("is-return-target");
+  elements.personaList.classList.add("is-returning-book");
+  portal.style.setProperty("--return-x", `${targetRect.left - sourceRect.left}px`);
+  portal.style.setProperty("--return-y", `${targetRect.top - sourceRect.top}px`);
+  portal.style.setProperty("--return-scale", String(targetRect.width / sourceRect.width));
+  portal.style.setProperty("--return-label-end", `${Math.max(9, 12 / (targetRect.width / sourceRect.width))}px`);
+  requestAnimationFrame(() => portal.classList.add("is-returning"));
+  state.bookPortalTimers.push(setTimeout(() => {
+    target.classList.remove("is-return-target");
+    elements.personaList.classList.remove("is-returning-book");
+    state.returningBook = null;
+    state.bookOrigin = null;
+    clearBookTransitionPortal();
+  }, 1_520));
 }
 
 function handOffBookTransitionPortal() {
@@ -344,19 +419,21 @@ function handleRoute() {
 }
 
 function showArchive() {
+  const isReturningBook = Boolean(state.returningBook && state.bookPortal);
   teardownScene();
-  clearBookTransitionPortal();
+  if (!isReturningBook) clearBookTransitionPortal();
   resetArchiveSelection();
   state.persona = null;
   state.assets = null;
   elements.sceneView.hidden = true;
   elements.archiveView.hidden = false;
-  elements.sceneView.classList.remove("is-revealed", "is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover", "is-handoff-opening");
+  elements.sceneView.classList.remove("is-revealed", "is-book-opening", "is-closing-book", "is-closing-to-shelf", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover", "is-handoff-opening");
   elements.bookDrawer.setAttribute("aria-hidden", "true");
   elements.bookDrawer.inert = true;
   elements.toggleBookDrawer.setAttribute("aria-expanded", "false");
   state.closing = false;
   document.title = "会回应的藏书阁";
+  if (isReturningBook) requestAnimationFrame(finishBookReturnToShelf);
 }
 
 function showScene(persona, assets) {
@@ -514,11 +591,25 @@ function closeBookToShelf() {
   setBookDrawer(false);
   state.closing = true;
   elements.sceneView.classList.add("is-closing-book");
+  const canReturnToShelf = !reducedMotion
+    && state.persona?.id !== "magic-mirror"
+    && Boolean(GENERATED_COVER_IMAGES[state.persona?.id]);
+  elements.sceneView.classList.toggle("is-closing-to-shelf", canReturnToShelf);
   elements.sceneView.classList.remove("is-book-opening");
   elements.sceneView.classList.remove("is-pinching");
   if (!reducedMotion && state.pageFlip) {
-    state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("bottom"), 280));
-    state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("top"), 1_500));
+    state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("bottom"), 100));
+    state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("top"), 850));
+  }
+  if (canReturnToShelf) {
+    state.flipTimers.push(setTimeout(() => {
+      if (!state.persona || !createBookReturnPortal(state.persona)) {
+        navigateTo("/");
+        return;
+      }
+      navigateTo("/");
+    }, 2_180));
+    return;
   }
   setTimeout(() => navigateTo("/"), reducedMotion ? 0 : 2_850);
 }
@@ -880,8 +971,7 @@ function saveReplyPreference(event) {
   try {
     if (value) localStorage.setItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`, value);
     else localStorage.removeItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`);
-    if (memory) localStorage.setItem(`${PERSONA_MEMORY_PREFIX}${state.persona.id}`, memory);
-    else localStorage.removeItem(`${PERSONA_MEMORY_PREFIX}${state.persona.id}`);
+    if (!personaMemoryStore.save(state.persona.id, memory)) throw new Error("memory_not_saved");
   } catch {
     showReplyFormMessage("浏览器不允许保存这项设置。", "error");
     return;
@@ -905,8 +995,7 @@ function readReplyPreference(personaId) {
 }
 
 function readPersonaMemory(personaId) {
-  try { return String(localStorage.getItem(`${PERSONA_MEMORY_PREFIX}${personaId}`) || "").slice(0, 600); }
-  catch { return ""; }
+  return personaMemoryStore.load(personaId);
 }
 
 function showReplyFormMessage(message, type) {

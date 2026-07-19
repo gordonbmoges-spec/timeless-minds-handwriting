@@ -1,4 +1,4 @@
-const CACHE_NAME = "answering-library-local-app-v20";
+const CACHE_NAME = "answering-library-local-app-v21";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -8,6 +8,7 @@ const APP_SHELL = [
   "/modules/ai-client.js",
   "/modules/ink-engine.js",
   "/modules/history-store.js",
+  "/modules/persona-memory-store.js",
   "/modules/custom-books.js",
   "/modules/book-gestures.js",
   "/modules/reply-presenter.js",

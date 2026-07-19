@@ -2419,3 +2419,130 @@ body {
   28%,88% { opacity:1;transform:translateX(-50%) scale(1); }
   100% { opacity:0;transform:translateX(-50%) scale(1.08); }
 }
+
+/* V14 · books sit clear of the shelf lip, travel with visible depth, and return home. */
+.persona-list .shelf-upper { bottom:calc(var(--upper-shelf-bottom) + 8px); }
+.persona-list .shelf-lower { bottom:calc(30.2vh + 8px); }
+@media (max-aspect-ratio:4/3) {
+  .persona-list .shelf-lower { bottom:calc(34.2vh + 8px); }
+}
+@media (min-aspect-ratio:4/3) {
+  .persona-list .shelf-lower { bottom:calc(36.111vh - 3.125vw + 8px); }
+}
+
+.book-transition-portal {
+  perspective:1400px;
+  transform-style:preserve-3d;
+}
+.book-transition-portal::before {
+  content:"";
+  position:absolute;
+  z-index:-1;
+  top:2.2%;
+  right:-9px;
+  bottom:2.2%;
+  width:13px;
+  border-radius:0 4px 4px 0;
+  background:repeating-linear-gradient(0deg,#d8bd83 0 2px,#a98551 2px 3px,#ead29b 3px 5px);
+  box-shadow:7px 7px 13px rgba(0,0,0,.5),inset -2px 0 3px rgba(70,39,14,.35);
+  opacity:0;
+  transform:translateZ(-3px);
+}
+.book-transition-portal::after {
+  content:"";
+  position:absolute;
+  z-index:-2;
+  right:4%;
+  bottom:-7%;
+  left:4%;
+  height:12%;
+  border-radius:50%;
+  background:rgba(0,0,0,.78);
+  filter:blur(11px);
+  opacity:.32;
+  transform:rotateX(72deg) scale(.72);
+}
+.book-transition-portal img { backface-visibility:hidden;transform:translateZ(2px); }
+.book-transition-portal.is-travelling::before { animation:portalThicknessIn 2.15s ease both; }
+.book-transition-portal.is-travelling::after { animation:portalShadowIn 2.15s ease both; }
+@keyframes portalThicknessIn { 0%,10%{opacity:0} 38%,100%{opacity:.96} }
+@keyframes portalShadowIn {
+  0%{opacity:.25;transform:rotateX(72deg) scale(.62)}
+  100%{opacity:.82;transform:rotateX(72deg) scale(1.08)}
+}
+@keyframes bookPortalTravel {
+  0% {
+    filter:none;
+    transform:translate3d(0,0,0) scale(1) rotateY(0) rotateX(0);
+    animation-timing-function:cubic-bezier(.22,.02,.34,1);
+  }
+  22% {
+    filter:drop-shadow(7px 10px 7px rgba(0,0,0,.72));
+    transform:translate3d(0,-6px,18px) scale(1.03) rotateY(-3deg) rotateX(1deg);
+    animation-timing-function:cubic-bezier(.18,.72,.14,1);
+  }
+  100% {
+    filter:drop-shadow(24px 32px 20px rgba(0,0,0,.62));
+    transform:translate3d(var(--portal-x),var(--portal-y),48px) scale(var(--portal-scale)) rotateY(-8deg) rotateX(2deg);
+  }
+}
+
+.scene-view.is-handoff-opening.is-book-opening .opening-book-stage {
+  transform-style:preserve-3d;
+  animation:handoffBookStage3d 4.3s cubic-bezier(.18,.74,.15,1) both!important;
+}
+@keyframes handoffBookStage3d {
+  0%,9% { opacity:0;filter:none;transform:translateX(-25%) rotateY(-8deg) rotateX(2deg); }
+  13%,38% { opacity:1;filter:none;transform:translateX(-25%) rotateY(-8deg) rotateX(2deg); }
+  64%,88% { opacity:1;filter:none;transform:translateX(0) rotateY(0) rotateX(0); }
+  100% { opacity:0;filter:blur(.6px);transform:translateX(0) translateY(-1.5vh) scale(1.025); }
+}
+
+.scene-view.is-closing-to-shelf.is-closing-book .opening-sequence {
+  visibility:visible;
+  animation:returnShelfVeil 2.22s ease both!important;
+}
+.scene-view.is-closing-to-shelf.is-closing-book .opening-book-stage {
+  animation:returnClosedBook 2.2s cubic-bezier(.48,.02,.22,1) both!important;
+}
+.scene-view.is-closing-to-shelf.is-closing-book .opening-book-shadow {
+  animation:returnClosedShadow 2.2s ease both!important;
+}
+.scene-view.is-closing-to-shelf.is-closing-book .paper-object {
+  animation:realParchmentClose 2.18s cubic-bezier(.52,.02,.28,1) both!important;
+}
+@keyframes returnShelfVeil { 0%{opacity:0} 8%,100%{opacity:1;visibility:visible} }
+@keyframes returnClosedBook {
+  0%,38%{opacity:1;transform:translateX(0) rotateY(0);filter:none}
+  78%,100%{opacity:1;transform:translateX(-25%) rotateY(-8deg) rotateX(2deg);filter:drop-shadow(0 30px 25px rgba(0,0,0,.72))}
+}
+@keyframes returnClosedShadow {
+  0%{opacity:.92;transform:translateX(-50%) scale(1.08)}
+  100%{opacity:.74;transform:translateX(-75%) scale(.66)}
+}
+
+.flat-cover-card.is-return-target { opacity:0!important;pointer-events:none; }
+.persona-list.is-returning-book .archive-entry:not(.is-return-target) {
+  animation:booksReturnToShelf 900ms 140ms ease both;
+}
+@keyframes booksReturnToShelf {
+  0%{opacity:0;filter:blur(4px) brightness(.48);transform:translate3d(0,8px,-90px) scale(.94)}
+  100%{opacity:1;filter:none;transform:translate3d(0,0,0) scale(1)}
+}
+.book-return-portal { filter:drop-shadow(24px 32px 20px rgba(0,0,0,.62));transform:rotateY(-8deg) rotateX(2deg); }
+.book-return-portal::before { opacity:.96; }
+.book-return-portal::after { opacity:.82;transform:rotateX(72deg) scale(1.08); }
+.book-return-portal.is-returning {
+  animation:bookPortalReturn 1.48s cubic-bezier(.42,0,.18,1) both;
+}
+.book-return-portal.is-returning strong { animation:bookPortalLabelReturn 1.48s ease both; }
+.book-return-portal.is-returning::before { animation:portalThicknessOut 1.48s ease both; }
+.book-return-portal.is-returning::after { animation:portalShadowOut 1.48s ease both; }
+@keyframes bookPortalReturn {
+  0%{filter:drop-shadow(24px 32px 20px rgba(0,0,0,.62));transform:translate3d(0,0,48px) scale(1) rotateY(-8deg) rotateX(2deg)}
+  72%{filter:drop-shadow(9px 13px 8px rgba(0,0,0,.7));transform:translate3d(var(--return-x),calc(var(--return-y) - 7px),12px) scale(var(--return-scale)) rotateY(-3deg) rotateX(1deg)}
+  100%{filter:drop-shadow(5px 7px 5px rgba(0,0,0,.72));transform:translate3d(var(--return-x),var(--return-y),0) scale(var(--return-scale)) rotateY(0) rotateX(0)}
+}
+@keyframes bookPortalLabelReturn { to{font-size:var(--return-label-end)} }
+@keyframes portalThicknessOut { 0%,70%{opacity:.96} 100%{opacity:0} }
+@keyframes portalShadowOut { to{opacity:.25;transform:rotateX(72deg) scale(.62)} }

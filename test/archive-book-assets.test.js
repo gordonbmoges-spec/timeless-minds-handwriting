@@ -65,3 +65,14 @@ test("keeps the selected cover alive through the shelf-to-page handoff", async (
   assert.match(css, /\.persona-list \.shelf-upper\s*\{\s*right:24%;left:27%;/);
   assert.match(css, /\.persona-list \.shelf-lower\s*\{\s*right:24%;left:50%;/);
 });
+
+test("shows book depth while opening and returns the same cover to its shelf slot", async () => {
+  const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(app, /function createBookReturnPortal\(/);
+  assert.match(app, /function finishBookReturnToShelf\(/);
+  assert.match(app, /target\.classList\.add\("is-return-target"\)/);
+  assert.match(css, /@keyframes portalThicknessIn/);
+  assert.match(css, /@keyframes returnClosedBook/);
+  assert.match(css, /@keyframes bookPortalReturn/);
+});
