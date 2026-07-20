@@ -2659,8 +2659,11 @@ body {
   100% { opacity:0;filter:none;transform:translateX(0) translateY(-1.5vh) scale(1.025); }
 }
 
-/* B: deterministic CSS 3D geometry. The book stays on one stage and only the cover hinge rotates. */
+/* B: code-only reconstruction of the supplied reference: fixed spine, hard cover, then five paper leaves. */
 .scene-view[data-motion="hinge"] .opening-flipbook { display:none; }
+.scene-view[data-motion="hinge"].is-handoff-opening.is-book-opening .opening-sequence {
+  animation-duration:5.85s!important;
+}
 .scene-view[data-motion="hinge"] .opening-hinge-rig {
   position:absolute;
   inset:0;
@@ -2672,7 +2675,7 @@ body {
   width:calc(var(--opening-closed-width,500px) * 2);
   max-width:92vw;
   aspect-ratio:4 / 3;
-  animation:hingeStageArrival 4.3s cubic-bezier(.18,.74,.15,1) both!important;
+  animation:hingeStageArrival 5.8s cubic-bezier(.18,.74,.15,1) both!important;
 }
 .hinge-book {
   position:absolute;
@@ -2684,8 +2687,10 @@ body {
 }
 .hinge-back-cover,
 .hinge-page-block,
+.hinge-turning-leaf,
 .hinge-front-cover,
-.hinge-cover-face {
+.hinge-cover-face,
+.hinge-leaf-face {
   position:absolute;
   inset:0;
   border-radius:5px 16px 16px 5px;
@@ -2705,7 +2710,20 @@ body {
     0 4px 0 #94713d,
     0 7px 0 #684820,
     8px 13px 18px rgba(0,0,0,.46);
-  transform:translateZ(2px);
+  transform:translateZ(0);
+}
+.hinge-page-block::after {
+  content:"";
+  position:absolute;
+  top:1.5%;
+  right:-2.2%;
+  bottom:1.5%;
+  width:4.5%;
+  border-radius:0 9px 9px 0;
+  background:repeating-linear-gradient(0deg,#e5cf9a 0 1px,#b18a50 1px 2px,#d7b879 2px 4px);
+  box-shadow:5px 7px 9px rgba(0,0,0,.36);
+  transform:translateZ(-1px) rotateY(70deg);
+  transform-origin:left center;
 }
 .hinge-page-face {
   position:absolute;
@@ -2716,9 +2734,54 @@ body {
     url("/assets/magic/blank-parchment.png") center / cover no-repeat;
   box-shadow:inset 10px 0 18px rgba(65,35,13,.22),inset -3px 0 4px rgba(255,239,192,.3);
 }
-.hinge-page-right { background-image:url("/assets/magic/pages/arcane-inscription.webp"); }
+.hinge-page-right {
+  background-image:
+    linear-gradient(90deg,rgba(69,38,15,.22),transparent 8%,transparent 91%,rgba(82,47,18,.12)),
+    url("/assets/magic/blank-parchment.png");
+}
+.hinge-turning-leaf {
+  z-index:3;
+  inset:2.2% 2.6% 2.4% 1.2%;
+  border-radius:3px 11px 12px 3px;
+  transform-origin:0 50%;
+  transform:translateZ(var(--leaf-z,7px)) rotateY(0deg);
+  will-change:transform,filter;
+}
+.hinge-leaf-face {
+  overflow:hidden;
+  border:1px solid rgba(111,73,34,.24);
+  border-radius:inherit;
+  backface-visibility:hidden;
+  background:
+    linear-gradient(90deg,rgba(70,39,15,.24),transparent 9%,transparent 90%,rgba(88,53,21,.12)),
+    url("/assets/magic/blank-parchment.png") center / cover no-repeat;
+  box-shadow:inset 9px 0 16px rgba(62,33,12,.18),inset -3px 0 4px rgba(255,239,192,.25);
+}
+.hinge-leaf-back {
+  transform:rotateY(180deg);
+  box-shadow:inset -11px 0 18px rgba(62,33,12,.2),inset 3px 0 4px rgba(255,239,192,.22);
+}
+.hinge-leaf-arcane {
+  background:
+    linear-gradient(90deg,rgba(70,39,15,.22),transparent 9%,transparent 90%,rgba(88,53,21,.12)),
+    url("/assets/magic/pages/arcane-inscription.webp") center / cover no-repeat;
+}
+.hinge-leaf-front:not(.hinge-leaf-arcane)::after,
+.hinge-leaf-back::after {
+  content:"";
+  position:absolute;
+  inset:12% 13% 14% 16%;
+  opacity:.12;
+  background:repeating-linear-gradient(0deg,transparent 0 18px,rgba(72,43,20,.5) 18px 19px);
+  mask-image:linear-gradient(to bottom,#000 0 72%,transparent 94%);
+}
+.hinge-leaf-1 { --leaf-z:10px;z-index:8; }
+.hinge-leaf-2 { --leaf-z:8px;z-index:7; }
+.hinge-leaf-3 { --leaf-z:6px;z-index:6; }
+.hinge-leaf-4 { --leaf-z:4px;z-index:5; }
+.hinge-leaf-5 { --leaf-z:2px;z-index:4; }
 .hinge-front-cover {
-  z-index:4;
+  z-index:12;
   transform-origin:0 50%;
   transform:translateZ(12px) rotateY(0deg);
 }
@@ -2738,22 +2801,44 @@ body {
   transform:rotateY(180deg);
 }
 .scene-view[data-motion="hinge"].is-book-opening .hinge-front-cover {
-  animation:fixedSpineCoverOpen 4.3s cubic-bezier(.46,.02,.16,1) both;
+  animation:referenceCoverOpen 2.12s .38s cubic-bezier(.44,.02,.12,1) both;
+}
+.scene-view[data-motion="hinge"].is-book-opening .hinge-leaf-1 {
+  animation:referenceLeafTurn .92s 2.34s cubic-bezier(.54,.02,.18,1) both;
+}
+.scene-view[data-motion="hinge"].is-book-opening .hinge-leaf-2 {
+  animation:referenceLeafTurn .9s 2.82s cubic-bezier(.54,.02,.18,1) both;
+}
+.scene-view[data-motion="hinge"].is-book-opening .hinge-leaf-3 {
+  animation:referenceLeafTurn .88s 3.28s cubic-bezier(.54,.02,.18,1) both;
+}
+.scene-view[data-motion="hinge"].is-book-opening .hinge-leaf-4 {
+  animation:referenceLeafTurn .86s 3.72s cubic-bezier(.54,.02,.18,1) both;
+}
+.scene-view[data-motion="hinge"].is-book-opening .hinge-leaf-5 {
+  animation:referenceLeafTurn .84s 4.14s cubic-bezier(.54,.02,.18,1) both;
 }
 .scene-view[data-motion="hinge"].is-closing-book .hinge-front-cover {
   animation:fixedSpineCoverClose 2.2s cubic-bezier(.48,.02,.22,1) both;
 }
 @keyframes hingeStageArrival {
-  0%,3% { opacity:0;filter:none;transform:translateX(-25%); }
-  10%,34% { opacity:1;filter:none;transform:translateX(-25%); }
-  78%,89% { opacity:1;filter:none;transform:translateX(0); }
-  100% { opacity:0;filter:none;transform:translateX(0) translateY(-1vh); }
+  0%,2% { opacity:0;filter:none;transform:translateX(-25%) scale(.96); }
+  7%,12% { opacity:1;filter:none;transform:translateX(-25%) scale(1); }
+  42%,88% { opacity:1;filter:none;transform:translateX(0) scale(1); }
+  100% { opacity:0;filter:none;transform:translateX(0) translateY(-1vh) scale(1.012); }
 }
-@keyframes fixedSpineCoverOpen {
-  0%,34% { transform:translateZ(12px) rotateY(0deg); }
-  52% { transform:translateZ(12px) rotateY(-34deg); }
-  72% { transform:translateZ(12px) rotateY(-126deg); }
-  89%,100% { transform:translateZ(12px) rotateY(-178deg); }
+@keyframes referenceCoverOpen {
+  0%,10% { transform:translateZ(12px) rotateY(0deg) rotateX(0);filter:drop-shadow(10px 15px 14px rgba(0,0,0,.48)); }
+  36% { transform:translateZ(28px) rotateY(-42deg) rotateX(-1deg);filter:drop-shadow(23px 20px 18px rgba(0,0,0,.5)); }
+  72% { transform:translateZ(18px) rotateY(-137deg) rotateX(1deg);filter:drop-shadow(11px 20px 14px rgba(0,0,0,.54)); }
+  100% { transform:translateZ(12px) rotateY(-178deg) rotateX(0);filter:drop-shadow(3px 11px 9px rgba(0,0,0,.46)); }
+}
+@keyframes referenceLeafTurn {
+  0% { transform:translateZ(var(--leaf-z)) rotateY(0deg) rotateX(0);filter:drop-shadow(1px 3px 2px rgba(0,0,0,.18)); }
+  18% { transform:translateZ(22px) rotateY(-18deg) rotateX(-2deg);filter:drop-shadow(11px 10px 9px rgba(0,0,0,.34)); }
+  48% { transform:translateZ(34px) rotateY(-88deg) rotateX(-3deg);filter:drop-shadow(18px 12px 12px rgba(0,0,0,.46)); }
+  76% { transform:translateZ(22px) rotateY(-154deg) rotateX(1.5deg);filter:drop-shadow(8px 10px 8px rgba(0,0,0,.34)); }
+  100% { transform:translateZ(var(--leaf-z)) rotateY(-178deg) rotateX(0);filter:drop-shadow(2px 4px 3px rgba(0,0,0,.2)); }
 }
 @keyframes fixedSpineCoverClose {
   0%,12% { transform:translateZ(12px) rotateY(-178deg); }

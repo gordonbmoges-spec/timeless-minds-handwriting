@@ -11,7 +11,7 @@ import { navigateTo, personaPath, routeFromPath } from "/modules/router.js";
 
 const API_SETTINGS_KEY = "ink-diary-api-settings-v1";
 const REPLY_PREFERENCE_PREFIX = "minds-archive-reply-preference-v1-";
-const MOTION_MODE_KEY = "minds-archive-motion-mode-v1";
+const MOTION_MODE_KEY = "minds-archive-motion-mode-v2";
 const IDLE_SEND_MS = 1_800;
 const HISTORICAL_PERSONA_IDS = new Set(["confucius", "socrates", "da-vinci", "shakespeare", "jung", "einstein"]);
 const GENERATED_COVER_IMAGES = Object.freeze({
@@ -103,9 +103,9 @@ registerLocalAppShell();
 function loadMotionMode() {
   try {
     const saved = localStorage.getItem(MOTION_MODE_KEY);
-    return ["crisp", "hinge", "legacy"].includes(saved) ? saved : "crisp";
+    return ["crisp", "hinge", "legacy"].includes(saved) ? saved : "hinge";
   } catch {
-    return "crisp";
+    return "hinge";
   }
 }
 
@@ -582,7 +582,7 @@ function showScene(persona, assets) {
       elements.sceneView.classList.remove("is-book-opening", "is-handoff-opening");
       state.openingTimer = null;
       showOpeningLine();
-    }, reducedMotion ? 0 : 4_350);
+    }, reducedMotion ? 0 : state.motionMode === "hinge" ? 5_850 : 4_350);
   });
   requestAnimationFrame(setupSceneEngines);
   setStatus("等待书写");

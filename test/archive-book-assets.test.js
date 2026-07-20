@@ -98,3 +98,16 @@ test("crossfades the opening cover and returns it to the same shelf slot", async
   assert.match(css, /@keyframes returnClosedBook/);
   assert.match(css, /@keyframes bookPortalReturn/);
 });
+
+test("reconstructs the reference opening with a fixed cover and sequential code-rendered leaves", async () => {
+  const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+  assert.equal((html.match(/hinge-turning-leaf hinge-leaf-/g) || []).length, 5);
+  assert.match(html, /B · 参考视频代码版/);
+  assert.match(app, /return \["crisp", "hinge", "legacy"\]\.includes\(saved\) \? saved : "hinge"/);
+  assert.match(app, /state\.motionMode === "hinge" \? 5_850 : 4_350/);
+  assert.match(css, /@keyframes referenceCoverOpen/);
+  assert.match(css, /@keyframes referenceLeafTurn/);
+  assert.match(css, /\.hinge-leaf-5[^\n]*--leaf-z:2px/);
+});
