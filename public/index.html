@@ -41,6 +41,14 @@
             <p class="archive-intro">八本书以封面朝向读者。轻触一本，它会展开成一整片会回应的羊皮纸。</p>
           </div>
           <div class="archive-header-actions">
+            <label class="motion-mode-control" for="motionMode">
+              <span>开书动画</span>
+              <select id="motionMode" aria-label="选择开书动画版本">
+                <option value="crisp">A · 全程高清</option>
+                <option value="hinge">B · 固定书脊 3D</option>
+                <option value="legacy">C · 旧版对照</option>
+              </select>
+            </label>
             <button class="text-button" id="createBook" type="button">＋ 新建</button>
             <button class="text-button" id="archiveApiSettings" type="button">API</button>
           </div>
@@ -60,6 +68,18 @@
         <div class="opening-sequence" id="openingSequence" aria-hidden="true">
           <div class="opening-book-shadow"></div>
           <div class="opening-book-stage">
+            <div class="opening-hinge-rig" id="openingHingeRig">
+              <div class="hinge-book">
+                <div class="hinge-back-cover"></div>
+                <div class="hinge-page-block">
+                  <div class="hinge-page-face hinge-page-right"></div>
+                </div>
+                <div class="hinge-front-cover">
+                  <div class="hinge-cover-face hinge-cover-outer" id="openingHingeCover"></div>
+                  <div class="hinge-cover-face hinge-cover-inner"></div>
+                </div>
+              </div>
+            </div>
             <div class="opening-flipbook" id="openingFlipbook">
               <div class="opening-flip-page opening-flip-cover" data-density="hard">
                 <div class="pageflip-cover-face">

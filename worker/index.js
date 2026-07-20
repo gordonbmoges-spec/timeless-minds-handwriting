@@ -2,7 +2,7 @@ import { buildCustomPersonaPrompt, buildPersonaPrompt, getPersona } from "./pers
 
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const SECURITY_HEADERS = Object.freeze({
-  "Content-Security-Policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; font-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; worker-src 'self'",
+  "Content-Security-Policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; font-src 'self'; style-src 'self' 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=' 'sha256-68ovwuVEgP4KP6803CNhdg6S0jCfEydjM4sM/Qdnc5o='; script-src 'self'; connect-src 'self'; worker-src 'self'",
   "Cross-Origin-Opener-Policy": "same-origin",
   "Cross-Origin-Resource-Policy": "same-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",

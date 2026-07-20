@@ -9,5 +9,8 @@ The files in this folder were generated for this project with OpenAI image gener
 - `panoramic-parchment.webp`: full-bleed parchment texture with no visible sheet boundary, generated as the immersive handwriting surface.
 - `antique-leather-spine.png`: photoreal blank antique leather spine material.
 - `blank-parchment.png`: photoreal blank vellum writing surface.
+- `motion-reference/floating-overhead-opening-sequence.png`: transparent six-stage floating hardcover opening study, generated from a motion-only analysis of the user-provided reference video.
+- `motion-reference/floating-overhead-book-styles.png`: transparent overhead style board for eight materially distinct books; panel order and intended use are documented beside the assets.
+- `motion-reference/confucius/*`: first eight-stage, per-book floating-opening test and review video. The accompanying QA notes intentionally keep this candidate out of the live animation until its mid-opening spine/page-block transition is corrected.
 
 The prompts deliberately exclude existing franchise marks, characters, readable text, and logos. These files are used as visual material layers; all book labels, controls, writing, and page interaction remain live HTML/canvas content.

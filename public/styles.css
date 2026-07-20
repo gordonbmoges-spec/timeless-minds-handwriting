@@ -2587,3 +2587,194 @@ body {
 }
 @keyframes bookPortalLabelReturn { to{font-size:var(--return-label-end)} }
 @keyframes portalShadowOut { to{opacity:.25;transform:rotateX(72deg) scale(.62)} }
+
+/* V15 · in-page motion lab: compare a sharp handoff, a fixed-spine rig, and the old transition. */
+.motion-mode-control {
+  display:grid;
+  gap:3px;
+  color:rgba(223,204,153,.62);
+  font:8px/1.1 ui-monospace,"SFMono-Regular",Menlo,monospace;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.motion-mode-control select {
+  min-height:25px;
+  border:1px solid rgba(178,151,91,.32);
+  border-radius:3px;
+  padding:0 22px 0 7px;
+  color:#d8c18c;
+  background:rgba(10,7,4,.58);
+  font:10px/1 "Songti SC","STSong",serif;
+  cursor:pointer;
+}
+.opening-hinge-rig { display:none; }
+
+/* A and B never blur the selected cover. The old C path keeps its previous filters for comparison. */
+.book-transition-portal[data-motion="crisp"].is-travelling,
+.book-transition-portal[data-motion="hinge"].is-travelling {
+  animation:bookPortalTravelSharp 2.05s cubic-bezier(.18,.74,.15,1) both;
+}
+.book-transition-portal[data-motion="crisp"].is-travelling strong,
+.book-transition-portal[data-motion="hinge"].is-travelling strong { animation:none; }
+.book-transition-portal[data-motion="crisp"] img,
+.book-transition-portal[data-motion="hinge"] img {
+  image-rendering:auto;
+  filter:drop-shadow(5px 7px 5px rgba(0,0,0,.72)) brightness(.78) saturate(.9) contrast(1.04);
+}
+@keyframes bookPortalTravelSharp {
+  0% {
+    filter:none;
+    transform:translate3d(var(--portal-start-x),var(--portal-start-y),0) scale(var(--portal-start-scale));
+  }
+  18% {
+    filter:none;
+    transform:translate3d(var(--portal-x-early),var(--portal-y-early),0) scale(var(--portal-scale-early));
+  }
+  52% {
+    filter:none;
+    transform:translate3d(var(--portal-x-mid),var(--portal-y-mid),0) scale(var(--portal-scale-mid));
+  }
+  78% {
+    filter:none;
+    transform:translate3d(var(--portal-x-late),var(--portal-y-late),0) scale(var(--portal-scale-late));
+  }
+  100% {
+    filter:none;
+    transform:translate3d(0,0,0) scale(1);
+  }
+}
+
+.scene-view[data-motion="crisp"].is-handoff-opening.is-book-opening .opening-book-stage {
+  animation:handoffBookStageSharp 4.3s cubic-bezier(.18,.74,.15,1) both!important;
+}
+.scene-view[data-motion="crisp"].has-generated-cover .pageflip-cover-face:not(.pageflip-back-cover) {
+  filter:brightness(.78) saturate(.9) contrast(1.04);
+}
+@keyframes handoffBookStageSharp {
+  0%,3% { opacity:0;filter:none;transform:translateX(-25%); }
+  9% { opacity:.24;filter:none;transform:translateX(-25%); }
+  17% { opacity:.76;filter:none;transform:translateX(-25%); }
+  25%,38% { opacity:1;filter:none;transform:translateX(-25%); }
+  64%,88% { opacity:1;filter:none;transform:translateX(0); }
+  100% { opacity:0;filter:none;transform:translateX(0) translateY(-1.5vh) scale(1.025); }
+}
+
+/* B: deterministic CSS 3D geometry. The book stays on one stage and only the cover hinge rotates. */
+.scene-view[data-motion="hinge"] .opening-flipbook { display:none; }
+.scene-view[data-motion="hinge"] .opening-hinge-rig {
+  position:absolute;
+  inset:0;
+  display:block;
+  perspective:1900px;
+  transform-style:preserve-3d;
+}
+.scene-view[data-motion="hinge"].is-handoff-opening.is-book-opening .opening-book-stage {
+  width:calc(var(--opening-closed-width,500px) * 2);
+  max-width:92vw;
+  aspect-ratio:4 / 3;
+  animation:hingeStageArrival 4.3s cubic-bezier(.18,.74,.15,1) both!important;
+}
+.hinge-book {
+  position:absolute;
+  top:0;
+  left:50%;
+  width:50%;
+  height:100%;
+  transform-style:preserve-3d;
+}
+.hinge-back-cover,
+.hinge-page-block,
+.hinge-front-cover,
+.hinge-cover-face {
+  position:absolute;
+  inset:0;
+  border-radius:5px 16px 16px 5px;
+  transform-style:preserve-3d;
+}
+.hinge-back-cover {
+  background:#2a180e;
+  box-shadow:12px 17px 24px rgba(0,0,0,.55);
+  transform:translateZ(-10px);
+}
+.hinge-page-block {
+  inset:2.2% 2.6% 2.4% 1.2%;
+  border-radius:3px 11px 12px 3px;
+  background:#d7b977;
+  box-shadow:
+    0 2px 0 #b99557,
+    0 4px 0 #94713d,
+    0 7px 0 #684820,
+    8px 13px 18px rgba(0,0,0,.46);
+  transform:translateZ(2px);
+}
+.hinge-page-face {
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  background:
+    linear-gradient(90deg,rgba(69,38,15,.22),transparent 8%,transparent 91%,rgba(82,47,18,.12)),
+    url("/assets/magic/blank-parchment.png") center / cover no-repeat;
+  box-shadow:inset 10px 0 18px rgba(65,35,13,.22),inset -3px 0 4px rgba(255,239,192,.3);
+}
+.hinge-page-right { background-image:url("/assets/magic/pages/arcane-inscription.webp"); }
+.hinge-front-cover {
+  z-index:4;
+  transform-origin:0 50%;
+  transform:translateZ(12px) rotateY(0deg);
+}
+.hinge-cover-face {
+  overflow:hidden;
+  backface-visibility:hidden;
+}
+.hinge-cover-outer {
+  background:var(--opening-cover-image) center / contain no-repeat;
+  filter:brightness(.78) saturate(.9) contrast(1.04);
+}
+.hinge-cover-inner {
+  background:
+    linear-gradient(90deg,rgba(62,34,14,.26),transparent 10%),
+    url("/assets/magic/blank-parchment.png") center / cover no-repeat;
+  box-shadow:inset -12px 0 22px rgba(68,37,14,.22),inset 0 0 0 8px rgba(69,39,17,.13);
+  transform:rotateY(180deg);
+}
+.scene-view[data-motion="hinge"].is-book-opening .hinge-front-cover {
+  animation:fixedSpineCoverOpen 4.3s cubic-bezier(.46,.02,.16,1) both;
+}
+.scene-view[data-motion="hinge"].is-closing-book .hinge-front-cover {
+  animation:fixedSpineCoverClose 2.2s cubic-bezier(.48,.02,.22,1) both;
+}
+@keyframes hingeStageArrival {
+  0%,3% { opacity:0;filter:none;transform:translateX(-25%); }
+  10%,34% { opacity:1;filter:none;transform:translateX(-25%); }
+  78%,89% { opacity:1;filter:none;transform:translateX(0); }
+  100% { opacity:0;filter:none;transform:translateX(0) translateY(-1vh); }
+}
+@keyframes fixedSpineCoverOpen {
+  0%,34% { transform:translateZ(12px) rotateY(0deg); }
+  52% { transform:translateZ(12px) rotateY(-34deg); }
+  72% { transform:translateZ(12px) rotateY(-126deg); }
+  89%,100% { transform:translateZ(12px) rotateY(-178deg); }
+}
+@keyframes fixedSpineCoverClose {
+  0%,12% { transform:translateZ(12px) rotateY(-178deg); }
+  74%,100% { transform:translateZ(12px) rotateY(0deg); }
+}
+
+/* Closing A/B is sharp as well, so the return trip does not reintroduce the rejected blur node. */
+.book-return-portal[data-motion="crisp"],
+.book-return-portal[data-motion="hinge"] { filter:drop-shadow(20px 28px 18px rgba(0,0,0,.62)); }
+.book-return-portal[data-motion="crisp"].is-returning,
+.book-return-portal[data-motion="hinge"].is-returning {
+  animation:bookPortalReturnSharp 1.48s cubic-bezier(.42,0,.18,1) both;
+}
+@keyframes bookPortalReturnSharp {
+  0%{filter:drop-shadow(20px 28px 18px rgba(0,0,0,.62));transform:translate3d(0,0,0) scale(1)}
+  72%{filter:drop-shadow(9px 13px 8px rgba(0,0,0,.7));transform:translate3d(var(--return-x),calc(var(--return-y) - 7px),0) scale(var(--return-scale))}
+  100%{filter:drop-shadow(5px 7px 5px rgba(0,0,0,.72));transform:translate3d(var(--return-x),var(--return-y),0) scale(var(--return-scale))}
+}
+
+@media (max-width:720px) {
+  .motion-mode-control span { display:none; }
+  .motion-mode-control select { max-width:126px;font-size:9px; }
+  .scene-view[data-motion="hinge"].is-handoff-opening.is-book-opening .opening-book-stage { max-width:96vw; }
+}

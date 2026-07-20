@@ -11,6 +11,7 @@ import { navigateTo, personaPath, routeFromPath } from "/modules/router.js";
 
 const API_SETTINGS_KEY = "ink-diary-api-settings-v1";
 const REPLY_PREFERENCE_PREFIX = "minds-archive-reply-preference-v1-";
+const MOTION_MODE_KEY = "minds-archive-motion-mode-v1";
 const IDLE_SEND_MS = 1_800;
 const HISTORICAL_PERSONA_IDS = new Set(["confucius", "socrates", "da-vinci", "shakespeare", "jung", "einstein"]);
 const GENERATED_COVER_IMAGES = Object.freeze({
@@ -66,7 +67,7 @@ const elements = Object.fromEntries([
   "customPersonality", "customOpeningLine", "customBookTone", "customSigil", "createBookMessage",
   "bookDrawer", "toggleBookDrawer", "closeBookDrawer", "activeBookVolume", "activeBookTitle",
   "activeBookOwner", "pinchHint", "openingSequence", "openingFlipbook", "openingBookSigil", "openingBookTitle",
-  "openingBookLatin"
+  "openingBookLatin", "motionMode", "openingHingeRig", "openingHingeCover"
 ].map((id) => [id, document.getElementById(id)]));
 
 const state = {
@@ -88,14 +89,39 @@ const state = {
   bookPortal: null,
   bookPortalTimers: [],
   bookOrigin: null,
-  returningBook: null
+  returningBook: null,
+  motionMode: loadMotionMode()
 };
 
+applyMotionMode(state.motionMode);
 renderArchive();
 bindGlobalEvents();
 handleRoute();
 updateConnectionCopy();
 registerLocalAppShell();
+
+function loadMotionMode() {
+  try {
+    const saved = localStorage.getItem(MOTION_MODE_KEY);
+    return ["crisp", "hinge", "legacy"].includes(saved) ? saved : "crisp";
+  } catch {
+    return "crisp";
+  }
+}
+
+function applyMotionMode(mode) {
+  const nextMode = ["crisp", "hinge", "legacy"].includes(mode) ? mode : "crisp";
+  state.motionMode = nextMode;
+  document.documentElement.dataset.bookMotion = nextMode;
+  elements.archiveView.dataset.motion = nextMode;
+  elements.sceneView.dataset.motion = nextMode;
+  elements.motionMode.value = nextMode;
+  try {
+    localStorage.setItem(MOTION_MODE_KEY, nextMode);
+  } catch {
+    // The comparison control still works for this visit when storage is unavailable.
+  }
+}
 
 function renderArchive() {
   const books = allPersonas();
@@ -230,21 +256,44 @@ function createBookTransitionPortal(button, persona) {
 
   const portal = document.createElement("div");
   portal.className = "book-transition-portal";
+  portal.dataset.motion = state.motionMode;
   portal.setAttribute("aria-hidden", "true");
-  portal.style.left = `${rect.left}px`;
-  portal.style.top = `${rect.top}px`;
-  portal.style.width = `${rect.width}px`;
-  portal.style.height = `${rect.height}px`;
-  portal.style.setProperty("--portal-x", `${targetLeft - rect.left}px`);
-  portal.style.setProperty("--portal-y", `${targetTop - rect.top}px`);
-  portal.style.setProperty("--portal-scale", String(scale));
-  portal.style.setProperty("--portal-x-mid", `${(targetLeft - rect.left) * 0.26}px`);
-  portal.style.setProperty("--portal-y-mid", `${(targetTop - rect.top) * 0.26}px`);
-  portal.style.setProperty("--portal-scale-mid", String(1 + (scale - 1) * 0.26));
-  portal.style.setProperty("--portal-x-late", `${(targetLeft - rect.left) * 0.7}px`);
-  portal.style.setProperty("--portal-y-late", `${(targetTop - rect.top) * 0.7}px`);
-  portal.style.setProperty("--portal-scale-late", String(1 + (scale - 1) * 0.7));
-  portal.style.setProperty("--portal-label-end", `${Math.max(6.5, 42 / scale)}px`);
+  if (state.motionMode === "legacy") {
+    portal.style.left = `${rect.left}px`;
+    portal.style.top = `${rect.top}px`;
+    portal.style.width = `${rect.width}px`;
+    portal.style.height = `${rect.height}px`;
+    portal.style.setProperty("--portal-x", `${targetLeft - rect.left}px`);
+    portal.style.setProperty("--portal-y", `${targetTop - rect.top}px`);
+    portal.style.setProperty("--portal-scale", String(scale));
+    portal.style.setProperty("--portal-x-mid", `${(targetLeft - rect.left) * 0.26}px`);
+    portal.style.setProperty("--portal-y-mid", `${(targetTop - rect.top) * 0.26}px`);
+    portal.style.setProperty("--portal-scale-mid", String(1 + (scale - 1) * 0.26));
+    portal.style.setProperty("--portal-x-late", `${(targetLeft - rect.left) * 0.7}px`);
+    portal.style.setProperty("--portal-y-late", `${(targetTop - rect.top) * 0.7}px`);
+    portal.style.setProperty("--portal-scale-late", String(1 + (scale - 1) * 0.7));
+    portal.style.setProperty("--portal-label-end", `${Math.max(6.5, 42 / scale)}px`);
+  } else {
+    const startScale = rect.width / targetWidth;
+    const startX = rect.left - targetLeft;
+    const startY = rect.top - targetTop;
+    portal.style.left = `${targetLeft}px`;
+    portal.style.top = `${targetTop}px`;
+    portal.style.width = `${targetWidth}px`;
+    portal.style.height = `${targetHeight}px`;
+    portal.style.setProperty("--portal-start-x", `${startX}px`);
+    portal.style.setProperty("--portal-start-y", `${startY}px`);
+    portal.style.setProperty("--portal-start-scale", String(startScale));
+    portal.style.setProperty("--portal-x-early", `${startX * 0.96}px`);
+    portal.style.setProperty("--portal-y-early", `${startY * 0.96 - 5}px`);
+    portal.style.setProperty("--portal-scale-early", String(startScale + (1 - startScale) * 0.04));
+    portal.style.setProperty("--portal-x-mid", `${startX * 0.74}px`);
+    portal.style.setProperty("--portal-y-mid", `${startY * 0.74}px`);
+    portal.style.setProperty("--portal-scale-mid", String(startScale + (1 - startScale) * 0.26));
+    portal.style.setProperty("--portal-x-late", `${startX * 0.3}px`);
+    portal.style.setProperty("--portal-y-late", `${startY * 0.3}px`);
+    portal.style.setProperty("--portal-scale-late", String(startScale + (1 - startScale) * 0.7));
+  }
 
   const cover = document.createElement("img");
   cover.src = image.currentSrc || image.src;
@@ -288,6 +337,7 @@ function createBookReturnPortal(persona) {
   const rect = bookPortalTarget(ratio);
   const portal = document.createElement("div");
   portal.className = "book-transition-portal book-return-portal";
+  portal.dataset.motion = state.motionMode;
   portal.setAttribute("aria-hidden", "true");
   portal.style.left = `${rect.left}px`;
   portal.style.top = `${rect.top}px`;
@@ -357,6 +407,7 @@ function resetArchiveSelection() {
 
 function bindGlobalEvents() {
   addEventListener("popstate", handleRoute);
+  elements.motionMode.addEventListener("change", () => applyMotionMode(elements.motionMode.value));
   elements.backToArchive.addEventListener("click", closeBookToShelf);
   elements.mobileBack.addEventListener("click", closeBookToShelf);
   elements.toggleBookDrawer.addEventListener("click", toggleBookDrawer);
@@ -453,6 +504,7 @@ function showScene(persona, assets) {
   elements.sceneView.classList.remove("is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover", "is-handoff-opening");
   elements.sceneView.classList.toggle("scene-mirror", persona.id === "magic-mirror");
   elements.sceneView.classList.toggle("is-handoff-opening", hasBookHandoff);
+  elements.sceneView.dataset.motion = state.motionMode;
   const generatedCoverImage = GENERATED_COVER_IMAGES[persona.id];
   elements.sceneView.classList.toggle("has-generated-cover", Boolean(generatedCoverImage));
   elements.sceneView.style.setProperty("--opening-cover-image", generatedCoverImage ? `url("${generatedCoverImage}")` : "none");
@@ -625,6 +677,10 @@ function closeBookToShelf() {
 function setupOpeningFlipbook() {
   clearFlipTimers();
   if (state.persona?.id === "magic-mirror") {
+    disposePageFlip();
+    return;
+  }
+  if (state.motionMode === "hinge") {
     disposePageFlip();
     return;
   }
