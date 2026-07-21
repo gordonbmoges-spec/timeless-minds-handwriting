@@ -95,7 +95,7 @@
                   <div class="hinge-leaf-face hinge-leaf-back"></div>
                 </div>
                 <div class="hinge-front-cover">
-                  <div class="hinge-cover-face hinge-cover-outer" id="openingHingeCover"></div>
+                  <div class="hinge-cover-face hinge-cover-outer" id="openingHingeCover"><strong id="openingHingeTitle"></strong></div>
                   <div class="hinge-cover-face hinge-cover-inner"></div>
                 </div>
               </div>
@@ -177,7 +177,7 @@
               </div>
               <div class="context-block connection-block">
                 <p class="section-label">连接状态</p>
-                <p id="modeCopy">未配置 API 时使用人物演示回复。</p>
+                <p id="modeCopy">未配置视觉模型时不能识别手写内容或判断书写语言。</p>
                 <button class="text-button full-width" id="openApiSettings" type="button">配置 API</button>
               </div>
             </section>
@@ -299,11 +299,9 @@
         </div>
         <div class="form-field"><label for="customIdentity">他是谁</label><textarea id="customIdentity" maxlength="180" rows="3" required placeholder="说明时代、经历、身份和他知道哪些事情。"></textarea></div>
         <div class="form-field"><label for="customPersonality">人物性格与回答口吻</label><textarea id="customPersonality" maxlength="260" rows="4" required placeholder="例如：谨慎、机智、略带讽刺；先给结论，再用一个炼金术比喻解释。"></textarea></div>
+        <div class="form-field"><label for="customMemory">这本书一开始要记住什么</label><textarea id="customMemory" maxlength="600" rows="4" placeholder="例如：我叫小腾；我们正在一起完善一座魔法藏书阁；请记住我偏好简短直接的回答。"></textarea></div>
         <div class="form-field"><label for="customOpeningLine">打开时的第一句话</label><input id="customOpeningLine" maxlength="120" placeholder="例如：你终于还是打开了这本书。" /></div>
-        <div class="form-grid two-columns">
-          <div class="form-field"><label for="customBookTone">封面颜色</label><select id="customBookTone"><option value="midnight">午夜蓝</option><option value="obsidian">黑曜石</option><option value="wine">暗酒红</option><option value="jade">墨玉绿</option><option value="parchment">旧皮革</option><option value="silver">月银色</option></select></div>
-          <div class="form-field"><label for="customSigil">封面徽记</label><input id="customSigil" maxlength="2" placeholder="首字、符号或印记" /></div>
-        </div>
+        <p class="field-hint">新增书统一使用藏书阁的魔法封面模板；封面书名、人物设定、记忆和开场白由你编辑。</p>
         <p class="settings-notice">自定义书籍保存在当前浏览器，不会自动公开到其他人的书架。人物资料会经过长度限制，并且不能覆盖系统安全规则。</p>
         <p class="form-message" id="createBookMessage" aria-live="polite"></p>
         <footer class="dialog-actions">

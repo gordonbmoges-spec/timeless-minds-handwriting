@@ -1,4 +1,4 @@
-const CACHE_NAME = "answering-library-local-app-v26";
+const CACHE_NAME = "answering-library-local-app-v27";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -19,6 +19,7 @@ const APP_SHELL = [
   "/assets/app-icon-512.png",
   "/assets/magic/enchanted-archive.png",
   "/assets/magic/archive-with-mirror.webp",
+  "/assets/magic/archive-three-shelves.png",
   "/assets/magic/books/confucius.webp",
   "/assets/magic/books/socrates.webp",
   "/assets/magic/books/da-vinci.webp",

@@ -42,6 +42,14 @@ test("builds a first-person, era-analogy, short-reply prompt", () => {
   assert.match(prompt, /表层语言属于用户/);
   assert.match(prompt, /作品与译介传统：.*论语/);
   assert.match(prompt, /主要参考作品：.*论语/);
+  assert.match(prompt, /回复语言规则：.*始终.*中文/);
+});
+
+test("only Chinese-origin books fix their reply language to Chinese", () => {
+  assert.equal(getPersona("confucius").replyLanguage, "zh");
+  assert.equal(getPersona("human-parchment").replyLanguage, "zh");
+  assert.equal(getPersona("socrates").replyLanguage, undefined);
+  assert.equal(getPersona("tom-riddle").replyLanguage, undefined);
 });
 
 test("keeps Shakespeare recognizable through original and translated traditions", () => {

@@ -12,6 +12,11 @@ import { navigateTo, personaPath, routeFromPath } from "/modules/router.js";
 const API_SETTINGS_KEY = "ink-diary-api-settings-v1";
 const REPLY_PREFERENCE_PREFIX = "minds-archive-reply-preference-v1-";
 const MOTION_MODE_KEY = "minds-archive-motion-mode-v2";
+const SHELF_TRAVEL_MS = 1_650;
+const REFERENCE_OPEN_MS = 5_600;
+const REFERENCE_CLOSE_MS = 5_150;
+const MIRROR_CLOSE_MS = 520;
+const MIRROR_RETURN_MS = 1_450;
 const IDLE_SEND_MS = 1_800;
 const HISTORICAL_PERSONA_IDS = new Set(["confucius", "socrates", "da-vinci", "shakespeare", "jung", "einstein"]);
 const GENERATED_COVER_IMAGES = Object.freeze({
@@ -64,10 +69,10 @@ const elements = Object.fromEntries([
   "clearReplySettings", "personaInstruction", "personaMemory", "replyFormMessage", "historyDialog",
   "closeHistory", "clearHistory", "historyList", "historyTitle", "createBookDialog",
   "createBookForm", "closeCreateBook", "customBookTitle", "customPersonaName", "customIdentity",
-  "customPersonality", "customOpeningLine", "customBookTone", "customSigil", "createBookMessage",
+  "customPersonality", "customMemory", "customOpeningLine", "createBookMessage",
   "bookDrawer", "toggleBookDrawer", "closeBookDrawer", "activeBookVolume", "activeBookTitle",
   "activeBookOwner", "pinchHint", "openingSequence", "openingFlipbook", "openingBookSigil", "openingBookTitle",
-  "openingBookLatin", "motionMode", "openingHingeRig", "openingHingeCover"
+  "openingBookLatin", "motionMode", "openingHingeRig", "openingHingeCover", "openingHingeTitle"
 ].map((id) => [id, document.getElementById(id)]));
 
 const state = {
@@ -131,11 +136,12 @@ function renderArchive() {
     const button = document.createElement("button");
     const isMirror = persona.id === "magic-mirror";
     const generatedCoverImage = GENERATED_COVER_IMAGES[persona.id];
+    const hasFlatCover = Boolean(generatedCoverImage || persona.isCustom);
     const displayTitle = HISTORICAL_PERSONA_IDS.has(persona.id) ? persona.name : (persona.bookTitle || persona.name);
     button.className = isMirror
       ? "mirror-card archive-entry"
-      : generatedCoverImage
-        ? "archive-entry flat-cover-card"
+      : hasFlatCover
+        ? `archive-entry flat-cover-card${persona.isCustom ? " custom-cover-card" : ""}`
         : `book-card archive-entry book-${persona.bookTone || "archive"}`;
     button.type = "button";
     button.dataset.personaId = persona.id;
@@ -159,10 +165,18 @@ function renderArchive() {
 
     if (generatedCoverImage) {
       const bookImage = document.createElement("img");
-      bookImage.className = "flat-cover-image";
+      bookImage.className = "flat-cover-image flat-cover-visual";
       bookImage.src = generatedCoverImage;
       bookImage.alt = "";
       button.append(bookImage);
+    } else if (persona.isCustom) {
+      const customCover = document.createElement("span");
+      customCover.className = "flat-cover-image flat-cover-visual custom-cover-visual";
+      customCover.setAttribute("aria-hidden", "true");
+      const monogram = document.createElement("i");
+      monogram.textContent = persona.sigil || persona.name.slice(0, 1);
+      customCover.append(monogram);
+      button.append(customCover);
     }
 
     const number = document.createElement("span");
@@ -208,14 +222,50 @@ function renderArchive() {
   });
 
   const mirror = entries.find((entry) => entry.dataset.personaId === "magic-mirror");
-  const shelfEntries = entries.filter((entry) => entry !== mirror);
+  const shelfEntries = entries.filter((entry) => entry !== mirror && !findAvailablePersona(entry.dataset.personaId)?.isCustom);
+  const customEntries = entries.filter((entry) => findAvailablePersona(entry.dataset.personaId)?.isCustom);
   const upperShelf = document.createElement("div");
   upperShelf.className = "book-shelf-row shelf-upper";
   upperShelf.append(...shelfEntries.slice(0, 5));
   const lowerShelf = document.createElement("div");
   lowerShelf.className = "book-shelf-row shelf-lower";
   lowerShelf.append(...shelfEntries.slice(5));
-  elements.personaList.replaceChildren(...(mirror ? [mirror] : []), upperShelf, lowerShelf);
+  const customShelf = document.createElement("div");
+  customShelf.className = "book-shelf-row shelf-custom";
+  customShelf.setAttribute("aria-label", "自定义书籍书架");
+  const customSlots = customEntries.map((entry) => {
+    const persona = findAvailablePersona(entry.dataset.personaId);
+    const slot = document.createElement("div");
+    const deleteButton = document.createElement("button");
+    slot.className = "custom-book-slot";
+    deleteButton.className = "custom-book-delete";
+    deleteButton.type = "button";
+    deleteButton.textContent = "×";
+    deleteButton.setAttribute("aria-label", `删除《${persona.bookTitle}》`);
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      deleteCustomBook(persona);
+    });
+    slot.append(entry, deleteButton);
+    return slot;
+  });
+  customShelf.append(...customSlots);
+  elements.personaList.replaceChildren(...(mirror ? [mirror] : []), upperShelf, lowerShelf, customShelf);
+}
+
+function deleteCustomBook(persona) {
+  if (!persona?.isCustom) return;
+  const approved = confirm(`确定删除《${persona.bookTitle}》吗？\n这本书的记忆和对话记录也会一起删除。`);
+  if (!approved) return;
+  customBooks = customBookStore.remove(persona.id);
+  personaMemoryStore.clear(persona.id);
+  historyStore.clear(persona.id);
+  try {
+    localStorage.removeItem(`${REPLY_PREFERENCE_PREFIX}${persona.id}`);
+  } catch {
+    // Deletion still succeeds when private browsing blocks localStorage.
+  }
+  renderArchive();
 }
 
 function openBook(personaId, button) {
@@ -232,15 +282,15 @@ function openBook(personaId, button) {
   });
   button.classList.add("is-opening");
   elements.archiveView.classList.add("is-opening-book");
-  const delay = reducedMotion ? 0 : personaId === "magic-mirror" ? 1_260 : hasBookPortal ? 2_050 : 1_720;
+  const delay = reducedMotion ? 0 : personaId === "magic-mirror" ? 1_260 : hasBookPortal ? SHELF_TRAVEL_MS : 1_520;
   setTimeout(() => {
     navigateTo(personaPath(personaId));
   }, delay);
 }
 
 function createBookTransitionPortal(button, persona) {
-  const image = button.querySelector(".flat-cover-image");
-  if (!image) return false;
+  const visual = button.querySelector(".flat-cover-visual");
+  if (!visual) return false;
   clearBookTransitionPortal();
 
   const rect = button.getBoundingClientRect();
@@ -295,9 +345,9 @@ function createBookTransitionPortal(button, persona) {
     portal.style.setProperty("--portal-scale-late", String(startScale + (1 - startScale) * 0.7));
   }
 
-  const cover = document.createElement("img");
-  cover.src = image.currentSrc || image.src;
-  cover.alt = "";
+  const cover = visual.cloneNode(true);
+  cover.classList.add("portal-cover-visual");
+  cover.setAttribute("aria-hidden", "true");
   const title = document.createElement("strong");
   title.textContent = persona.name;
   portal.append(cover, title);
@@ -331,7 +381,7 @@ function bookPortalTarget(ratio) {
 
 function createBookReturnPortal(persona) {
   const source = GENERATED_COVER_IMAGES[persona?.id];
-  if (!source) return false;
+  if (!source && !persona?.isCustom) return false;
   clearBookTransitionPortal();
   const ratio = state.bookOrigin?.personaId === persona.id ? state.bookOrigin.ratio : 2 / 3;
   const rect = bookPortalTarget(ratio);
@@ -344,12 +394,36 @@ function createBookReturnPortal(persona) {
   portal.style.width = `${rect.width}px`;
   portal.style.height = `${rect.height}px`;
 
-  const cover = document.createElement("img");
-  cover.src = source;
-  cover.alt = "";
+  let cover;
+  if (source) {
+    cover = document.createElement("img");
+    cover.src = source;
+    cover.alt = "";
+  } else {
+    cover = document.createElement("span");
+    cover.className = "flat-cover-image flat-cover-visual custom-cover-visual portal-cover-visual";
+    cover.setAttribute("aria-hidden", "true");
+    const monogram = document.createElement("i");
+    monogram.textContent = persona.sigil || persona.name.slice(0, 1);
+    cover.append(monogram);
+  }
   const title = document.createElement("strong");
-  title.textContent = persona.name;
+  title.textContent = persona.bookTitle || persona.name;
   portal.append(cover, title);
+  document.body.append(portal);
+  state.bookPortal = portal;
+  state.returningBook = { personaId: persona.id };
+  return true;
+}
+
+function createMirrorReturnPortal(persona) {
+  if (persona?.id !== "magic-mirror" || !state.assets?.background) return false;
+  clearBookTransitionPortal();
+  const portal = document.createElement("div");
+  portal.className = "mirror-return-portal";
+  portal.setAttribute("aria-hidden", "true");
+  portal.style.backgroundImage = `url("${state.assets.background}")`;
+  portal.style.backgroundPosition = state.assets.backgroundFocus || "center";
   document.body.append(portal);
   state.bookPortal = portal;
   state.returningBook = { personaId: persona.id };
@@ -360,6 +434,16 @@ function finishBookReturnToShelf() {
   const returning = state.returningBook;
   const portal = state.bookPortal;
   if (!returning || !portal) return;
+  const isMirrorReturn = portal.classList.contains("mirror-return-portal");
+  if (isMirrorReturn) {
+    requestAnimationFrame(() => portal.classList.add("is-returning"));
+    state.bookPortalTimers.push(setTimeout(() => {
+      elements.archiveView.classList.remove("is-mirror-returning");
+      state.returningBook = null;
+      clearBookTransitionPortal();
+    }, MIRROR_RETURN_MS));
+    return;
+  }
   const target = elements.personaList.querySelector(`[data-persona-id="${returning.personaId}"]`);
   if (!target) {
     state.returningBook = null;
@@ -375,10 +459,13 @@ function finishBookReturnToShelf() {
   }
   target.classList.add("is-return-target");
   elements.personaList.classList.add("is-returning-book");
-  portal.style.setProperty("--return-x", `${targetRect.left - sourceRect.left}px`);
-  portal.style.setProperty("--return-y", `${targetRect.top - sourceRect.top}px`);
-  portal.style.setProperty("--return-scale", String(targetRect.width / sourceRect.width));
-  portal.style.setProperty("--return-label-end", `${Math.max(9, 12 / (targetRect.width / sourceRect.width))}px`);
+  const returnX = targetRect.left - sourceRect.left;
+  const returnY = targetRect.top - sourceRect.top;
+  const returnScale = targetRect.width / sourceRect.width;
+  portal.style.setProperty("--return-x", `${returnX}px`);
+  portal.style.setProperty("--return-y", `${returnY}px`);
+  portal.style.setProperty("--return-scale", String(returnScale));
+  portal.style.setProperty("--return-label-end", `${Math.max(9, 12 / returnScale)}px`);
   requestAnimationFrame(() => portal.classList.add("is-returning"));
   state.bookPortalTimers.push(setTimeout(() => {
     target.classList.remove("is-return-target");
@@ -392,8 +479,8 @@ function finishBookReturnToShelf() {
 function handOffBookTransitionPortal() {
   if (!state.bookPortal) return;
   const portal = state.bookPortal;
-  state.bookPortalTimers.push(setTimeout(() => portal.classList.add("is-handing-off"), 140));
-  state.bookPortalTimers.push(setTimeout(clearBookTransitionPortal, 940));
+  state.bookPortalTimers.push(setTimeout(() => portal.classList.add("is-handing-off"), 80));
+  state.bookPortalTimers.push(setTimeout(clearBookTransitionPortal, 520));
 }
 
 function resetArchiveSelection() {
@@ -477,6 +564,7 @@ function handleRoute() {
 
 function showArchive() {
   const isReturningBook = Boolean(state.returningBook && state.bookPortal);
+  const isReturningMirror = isReturningBook && state.returningBook?.personaId === "magic-mirror";
   teardownScene();
   if (!isReturningBook) clearBookTransitionPortal();
   resetArchiveSelection();
@@ -484,7 +572,8 @@ function showArchive() {
   state.assets = null;
   elements.sceneView.hidden = true;
   elements.archiveView.hidden = false;
-  elements.sceneView.classList.remove("is-revealed", "is-book-opening", "is-closing-book", "is-closing-to-shelf", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover", "is-handoff-opening");
+  elements.archiveView.classList.toggle("is-mirror-returning", isReturningMirror);
+  elements.sceneView.classList.remove("is-revealed", "is-book-opening", "is-closing-book", "is-closing-to-shelf", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover", "has-custom-cover", "is-handoff-opening");
   elements.bookDrawer.setAttribute("aria-hidden", "true");
   elements.bookDrawer.inert = true;
   elements.toggleBookDrawer.setAttribute("aria-expanded", "false");
@@ -501,12 +590,13 @@ function showScene(persona, assets) {
   state.history = historyStore.load(persona.id);
   elements.archiveView.hidden = true;
   elements.sceneView.hidden = false;
-  elements.sceneView.classList.remove("is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover", "is-handoff-opening");
+  elements.sceneView.classList.remove("is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover", "has-custom-cover", "is-handoff-opening");
   elements.sceneView.classList.toggle("scene-mirror", persona.id === "magic-mirror");
   elements.sceneView.classList.toggle("is-handoff-opening", hasBookHandoff);
   elements.sceneView.dataset.motion = state.motionMode;
   const generatedCoverImage = GENERATED_COVER_IMAGES[persona.id];
   elements.sceneView.classList.toggle("has-generated-cover", Boolean(generatedCoverImage));
+  elements.sceneView.classList.toggle("has-custom-cover", Boolean(persona.isCustom));
   elements.sceneView.style.setProperty("--opening-cover-image", generatedCoverImage ? `url("${generatedCoverImage}")` : "none");
   const openingRatio = state.bookOrigin?.personaId === persona.id ? state.bookOrigin.ratio : 2 / 3;
   elements.sceneView.style.setProperty("--opening-closed-width", `${bookPortalTarget(openingRatio).width}px`);
@@ -546,6 +636,7 @@ function showScene(persona, assets) {
   elements.openingBookSigil.textContent = assets.sigil || persona.sigil || persona.name.slice(0, 1);
   elements.openingBookTitle.textContent = persona.name;
   elements.openingBookLatin.textContent = persona.latinName;
+  elements.openingHingeTitle.textContent = persona.bookTitle || persona.name;
   elements.paperObject.classList.remove("book-unfolding");
   elements.paperObject.dataset.bookTitle = persona.name;
   const coverColor = assets.coverColor || bookCoverColor(persona.bookTone);
@@ -582,7 +673,7 @@ function showScene(persona, assets) {
       elements.sceneView.classList.remove("is-book-opening", "is-handoff-opening");
       state.openingTimer = null;
       showOpeningLine();
-    }, reducedMotion ? 0 : state.motionMode === "hinge" ? 5_850 : 4_350);
+    }, reducedMotion ? 0 : state.motionMode === "hinge" ? REFERENCE_OPEN_MS : 4_350);
   });
   requestAnimationFrame(setupSceneEngines);
   setStatus("等待书写");
@@ -653,10 +744,21 @@ function closeBookToShelf() {
   elements.sceneView.classList.add("is-closing-book");
   const canReturnToShelf = !reducedMotion
     && state.persona?.id !== "magic-mirror"
-    && Boolean(GENERATED_COVER_IMAGES[state.persona?.id]);
+    && Boolean(GENERATED_COVER_IMAGES[state.persona?.id] || state.persona?.isCustom);
   elements.sceneView.classList.toggle("is-closing-to-shelf", canReturnToShelf);
   elements.sceneView.classList.remove("is-book-opening");
   elements.sceneView.classList.remove("is-pinching");
+  const isMirror = state.persona?.id === "magic-mirror";
+  if (isMirror && !reducedMotion) {
+    setTimeout(() => {
+      if (!state.persona || !createMirrorReturnPortal(state.persona)) {
+        navigateTo("/");
+        return;
+      }
+      navigateTo("/");
+    }, MIRROR_CLOSE_MS);
+    return;
+  }
   if (!reducedMotion && state.pageFlip) {
     state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("bottom"), 100));
     state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("top"), 850));
@@ -668,7 +770,7 @@ function closeBookToShelf() {
         return;
       }
       navigateTo("/");
-    }, 2_180));
+    }, REFERENCE_CLOSE_MS));
     return;
   }
   setTimeout(() => navigateTo("/"), reducedMotion ? 0 : 2_850);
@@ -788,13 +890,12 @@ function showOpeningLine(attempt = 0) {
     if (attempt < 3) setTimeout(() => showOpeningLine(attempt + 1), 50);
     return;
   }
-  state.reply.show(state.persona.openingLine, {
+  showReplyWithLoadedFont(state.persona.openingLine, {
     direction: state.assets.writingDirection,
     align: "center",
     topRatio: state.assets.replyTopRatio || 0.08,
     maxWidthRatio: state.assets.replyMaxWidthRatio || 0.82,
     color: state.assets.replyInk,
-    fontFamily: replyFontFor(state.persona.openingLine),
     fontSize: state.assets.replyFontSize || 36,
     pace: 1.18
   });
@@ -875,20 +976,26 @@ async function commitPage() {
       updateHistoryCount();
     }
     elements.modeCopy.textContent = data.mode === "demo"
-      ? `演示模式 · ${state.persona.name}人物内核已启用；演示句不会存入历史档案。`
+      ? "演示模式无法读取手写语言；请配置视觉模型后再试。"
       : `AI 模式 · ${state.persona.name}已读取纸面并回应。`;
-    setStatus(data.status === "needs_clarification" ? "请再写一次" : "正在回信", "busy");
-    await state.reply.show(data.reply || "", {
+    setStatus(
+      data.status === "demo_unavailable"
+        ? "需要配置 AI"
+        : data.status === "needs_clarification"
+          ? "请再写一次"
+          : "正在回信",
+      data.status === "demo_unavailable" ? "error" : "busy"
+    );
+    await showReplyWithLoadedFont(data.reply || "", {
       direction: state.assets.writingDirection,
       align: "center",
       topRatio: state.assets.replyTopRatio || 0.08,
       maxWidthRatio: state.assets.replyMaxWidthRatio || 0.82,
       color: state.assets.replyInk,
-      fontFamily: replyFontFor(data.reply),
       fontSize: state.assets.replyFontSize || 36,
       pace: data.style?.pace || 1
     });
-    setStatus("等待书写");
+    if (data.status !== "demo_unavailable") setStatus("等待书写");
   } catch (error) {
     console.error("Reply request failed", { code: error.code, status: error.status });
     setStatus("接口错误 · 可重试", "error");
@@ -1134,8 +1241,19 @@ function replyFontFor(text) {
   const latin = (value.match(/[A-Za-z]/g) || []).length;
   const cjk = (value.match(/[\u3400-\u9fff]/g) || []).length;
   return latin > cjk
-    ? '"IM FELL English", "Dancing Script", Georgia, serif'
+    ? '"Dancing Script", "IM FELL English", "Uncial Antiqua", Georgia, serif'
     : '"ZCOOL XiaoWei", "Kaiti SC", "STKaiti", "KaiTi", serif';
+}
+
+async function showReplyWithLoadedFont(text, options) {
+  const fontFamily = replyFontFor(text);
+  const fontSize = options.fontSize || 36;
+  try {
+    await document.fonts?.load?.(`${fontSize}px ${fontFamily}`);
+  } catch {
+    // Canvas will use the declared fallback stack if a font cannot be loaded.
+  }
+  return state.reply?.show(text, { ...options, fontFamily });
 }
 
 function bookCoverColor(tone) {
@@ -1198,9 +1316,10 @@ function saveCustomBook(event) {
       identity: elements.customIdentity.value,
       personality: elements.customPersonality.value,
       openingLine: elements.customOpeningLine.value,
-      bookTone: elements.customBookTone.value,
-      sigil: elements.customSigil.value
+      bookTone: "obsidian",
+      sigil: elements.customPersonaName.value.trim().slice(0, 1)
     });
+    personaMemoryStore.save(book.id, elements.customMemory.value);
     customBooks = customBookStore.load();
     renderArchive();
     elements.createBookMessage.textContent = `《${book.bookTitle}》已经放上书架。`;

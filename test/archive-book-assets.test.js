@@ -66,7 +66,7 @@ test("keeps the selected cover alive through the shelf-to-page handoff", async (
   const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
   const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
   assert.match(app, /function createBookTransitionPortal\(/);
-  assert.match(app, /hasBookPortal \? 2_050 : 1_720/);
+  assert.match(app, /hasBookPortal \? SHELF_TRAVEL_MS : 1_520/);
   assert.match(app, /elements\.sceneView\.classList\.toggle\("is-handoff-opening", hasBookHandoff\)/);
   assert.match(css, /@keyframes bookPortalTravel/);
   assert.match(css, /@keyframes handoffBookStage/);
@@ -99,6 +99,19 @@ test("crossfades the opening cover and returns it to the same shelf slot", async
   assert.match(css, /@keyframes bookPortalReturn/);
 });
 
+test("crossfades the full-screen magic mirror into the archive without scaling", async () => {
+  const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(app, /function createMirrorReturnPortal\(persona\)/);
+  assert.match(app, /portal\.className = "mirror-return-portal"/);
+  assert.match(app, /elements\.archiveView\.classList\.toggle\("is-mirror-returning", isReturningMirror\)/);
+  assert.match(app, /elements\.archiveView\.classList\.remove\("is-mirror-returning"\)/);
+  assert.match(css, /\.mirror-return-portal\.is-returning\s*\{[^}]*mirrorFullScreenFadeOut/s);
+  assert.match(css, /\.archive-view\.is-mirror-returning\s*\{[^}]*archiveMirrorFadeIn/s);
+  const mirrorFade = css.match(/@keyframes mirrorFullScreenFadeOut\s*\{([^}]*(?:\}[^@]*)?)/)?.[1] || "";
+  assert.doesNotMatch(mirrorFade, /transform|scale|translate/);
+});
+
 test("reconstructs the reference opening with a fixed cover and sequential code-rendered leaves", async () => {
   const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
   const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
@@ -106,8 +119,58 @@ test("reconstructs the reference opening with a fixed cover and sequential code-
   assert.equal((html.match(/hinge-turning-leaf hinge-leaf-/g) || []).length, 5);
   assert.match(html, /B · 参考视频代码版/);
   assert.match(app, /return \["crisp", "hinge", "legacy"\]\.includes\(saved\) \? saved : "hinge"/);
-  assert.match(app, /state\.motionMode === "hinge" \? 5_850 : 4_350/);
+  assert.match(app, /state\.motionMode === "hinge" \? REFERENCE_OPEN_MS : 4_350/);
   assert.match(css, /@keyframes referenceCoverOpen/);
   assert.match(css, /@keyframes referenceLeafTurn/);
-  assert.match(css, /\.hinge-leaf-5[^\n]*--leaf-z:2px/);
+  assert.match(css, /\.hinge-page-block\s*\{[^}]*inset:4\.2% 4\.8% 4\.5% 0;/s);
+  assert.match(css, /\.hinge-turning-leaf\s*\{[^}]*inset:4\.2% 4\.8% 4\.5% 0;/s);
+  assert.match(css, /\.hinge-leaf-5[^\n]*--leaf-z:2px;z-index:17/);
+  assert.match(css, /@keyframes referenceRightPageExpand/);
+  assert.match(css, /@keyframes referenceRightPageContract/);
+  assert.match(css, /@keyframes referenceCoverCloseV16/);
+  assert.match(css, /rotateY\(-180deg\)/);
+});
+
+test("keeps the page core present and crossfades its last second into the identical writable fullscreen state", async () => {
+  const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
+  const coverOpen = css.match(/@keyframes referenceCoverOpenV16\s*\{([\s\S]*?)\n\}/)?.[1] || "";
+  const pageExpand = css.match(/@keyframes referenceRightPageExpand\s*\{([\s\S]*?)\n\}/)?.[1] || "";
+  const stageOpen = css.match(/@keyframes referenceStageOpen\s*\{([\s\S]*?)\n\}/)?.[1] || "";
+
+  assert.doesNotMatch(css, /referenceBookCore(?:Unmask|Mask)[\s\S]{0,500}visibility:hidden/);
+  assert.match(css, /is-book-opening \.hinge-page-block\s*\{\s*visibility:visible;\s*animation:referenceBookCoreUnmask 5\.6s linear both;/s);
+  assert.match(css, /@keyframes referenceBookCoreUnmask\s*\{[\s\S]*0%,18%\s*\{ clip-path:inset\(0 0 0 1\.8%/);
+  assert.match(css, /@keyframes referenceBookCoreMask\s*\{[\s\S]*80%,100%\s*\{ clip-path:inset\(0 0 0 1\.8%/);
+  assert.match(css, /var\(--opening-cover-image\) center \/ 100% 100% no-repeat,[\s\S]*linear-gradient\(#1a100b,#1a100b\) center \/ 95\.6% 97\.2% no-repeat/);
+  assert.match(css, /referenceCoverCloseV16 1\.4s 3\.58s/);
+  assert.match(css, /inset:4\.2% 4\.8% 4\.5% 0;/);
+  assert.ok((coverOpen.match(/rotateY\(/g) || []).length >= 12);
+  assert.match(pageExpand, /0%,81%\s*\{ opacity:0;transform:none;filter:none;/);
+  assert.match(pageExpand, /92%\s*\{ opacity:\.42;transform:none;filter:none;/);
+  assert.match(pageExpand, /99\.8%,100%\s*\{ opacity:1;transform:none;filter:none;/);
+  assert.doesNotMatch(pageExpand, /translateX|scale\(/);
+  assert.match(css, /@keyframes referenceSequenceOpen\s*\{[\s\S]*92%\s*\{ opacity:\.68;visibility:visible; \}[\s\S]*100%\s*\{ opacity:0;visibility:hidden; \}/);
+  assert.doesNotMatch(stageOpen, /opacity:0/);
+});
+
+test("adds a third shelf and gives custom books one editable memory-backed cover template", async () => {
+  const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+  assert.match(app, /customShelf\.className = "book-shelf-row shelf-custom"/);
+  assert.match(app, /customCover\.className = "flat-cover-image flat-cover-visual custom-cover-visual"/);
+  assert.match(app, /personaMemoryStore\.save\(book\.id, elements\.customMemory\.value\)/);
+  assert.match(html, /id="customMemory"[^>]*maxlength="600"/);
+  assert.match(css, /\.persona-list \.shelf-custom\s*\{/);
+  assert.match(css, /\.persona-list \.shelf-upper \{ bottom:calc\(var\(--upper-shelf-bottom\) \+ 48px\); \}/);
+  assert.match(css, /\.mirror-entry-label\s*\{[^}]*top:36%;/s);
+  assert.match(css, /\.back-button\s*\{[^}]*"PingFang SC"/s);
+  assert.match(css, /\.custom-cover-visual\s*\{/);
+  assert.match(css, /archive-three-shelves\.png/);
+  assert.match(css, /\.scene-view\.is-handoff-opening\.is-book-opening \.opening-sequence\s*\{[^}]*archive-three-shelves\.png/s);
+  assert.match(css, /\.scene-view\.is-closing-to-shelf\.is-closing-book \.opening-sequence\s*\{[^}]*archive-three-shelves\.png/s);
+  assert.match(app, /custom-book-delete/);
+  assert.match(app, /customBookStore\.remove\(persona\.id\)/);
+  assert.match(app, /personaMemoryStore\.clear\(persona\.id\)/);
+  assert.match(app, /historyStore\.clear\(persona\.id\)/);
 });

@@ -28,7 +28,7 @@ test("rejects an unregistered persona id", async () => {
   });
 });
 
-test("returns a persona-specific demo reply without an API key", async () => {
+test("honestly reports that demo mode cannot detect handwriting language", async () => {
   await withServer({ env: {} }, async (baseUrl) => {
     const response = await fetch(`${baseUrl}/api/reply`, {
       method: "POST",
@@ -38,8 +38,88 @@ test("returns a persona-specific demo reply without an API key", async () => {
     const data = await response.json();
     assert.equal(response.status, 200);
     assert.equal(data.mode, "demo");
+    assert.equal(data.status, "demo_unavailable");
     assert.equal(data.personaId, "confucius");
-    assert.match(data.reply, /学|问|行/);
+    assert.equal(data.transcript, "");
+    assert.match(data.reply, /不能识别手写内容/);
+    assert.match(data.reply, /cannot read handwriting/i);
+  });
+});
+
+test("repairs a foreign persona reply when English handwriting receives Chinese output", async () => {
+  const upstreamBodies = [];
+  const fetchImpl = async (_url, init) => {
+    upstreamBodies.push(JSON.parse(init.body));
+    const content = upstreamBodies.length === 1
+      ? { transcript: "What makes a life worth living?", reply: "先问清楚，你所说的值得究竟是什么。" }
+      : { reply: "First tell me what you mean by worthy; an unexamined measure may belong to the crowd rather than to you." };
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify(content) } }]
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  await withServer({ env: { AI_API_KEY: "test-key" }, fetchImpl }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageDataUrl, personaId: "socrates" })
+    });
+    const data = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(data.transcript, "What makes a life worth living?");
+    assert.equal(data.reply, "First tell me what you mean by worthy; an unexamined measure may belong to the crowd rather than to you.");
+    assert.equal(upstreamBodies.length, 2);
+    assert.match(upstreamBodies[1].messages[0].content, /entirely in English/);
+  });
+});
+
+test("does not make a second request when an English reply already matches", async () => {
+  let callCount = 0;
+  const fetchImpl = async () => {
+    callCount += 1;
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({ transcript: "Who are you?", reply: "I am Socrates of Athens. Tell me which belief you wish to examine." }) } }]
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  await withServer({ env: { AI_API_KEY: "test-key" }, fetchImpl }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageDataUrl, personaId: "socrates" })
+    });
+    const data = await response.json();
+    assert.equal(response.status, 200);
+    assert.match(data.reply, /^I am Socrates/);
+    assert.equal(callCount, 1);
+  });
+});
+
+test("keeps a Chinese persona reply in Chinese even when the handwriting is English", async () => {
+  const upstreamBodies = [];
+  const fetchImpl = async (_url, init) => {
+    upstreamBodies.push(JSON.parse(init.body));
+    const content = upstreamBodies.length === 1
+      ? { transcript: "How should I treat my friends?", reply: "Treat them with sincerity, and examine your own conduct first." }
+      : { reply: "与友交，当以诚为本；先反求诸己，再责人之失。" };
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify(content) } }]
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  await withServer({ env: { AI_API_KEY: "test-key" }, fetchImpl }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageDataUrl, personaId: "confucius" })
+    });
+    const data = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(data.transcript, "How should I treat my friends?");
+    assert.equal(data.reply, "与友交，当以诚为本；先反求诸己，再责人之失。");
+    assert.equal(upstreamBodies.length, 2);
+    assert.match(upstreamBodies[0].messages[1].content[0].text, /always write this Chinese persona's reply in readable Chinese/);
+    assert.match(upstreamBodies[1].messages[0].content, /entirely in Chinese/);
   });
 });
 
