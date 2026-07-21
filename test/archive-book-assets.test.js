@@ -68,10 +68,28 @@ test("keeps the selected cover alive through the shelf-to-page handoff", async (
   assert.match(app, /function createBookTransitionPortal\(/);
   assert.match(app, /hasBookPortal \? SHELF_TRAVEL_MS : 1_520/);
   assert.match(app, /elements\.sceneView\.classList\.toggle\("is-handoff-opening", hasBookHandoff\)/);
+  assert.match(app, /BOOK_HANDOFF_FADE_DELAY_MS = 320/);
+  assert.match(app, /BOOK_HANDOFF_REMOVE_MS = 1_120/);
+  assert.match(app, /setTimeout\(clearBookTransitionPortal, BOOK_HANDOFF_REMOVE_MS\)/);
   assert.match(css, /@keyframes bookPortalTravel/);
   assert.match(css, /@keyframes handoffBookStage/);
   assert.match(css, /\.persona-list \.shelf-upper\s*\{\s*right:24%;left:27%;/);
   assert.match(css, /\.persona-list \.shelf-lower\s*\{\s*right:24%;left:50%;/);
+});
+
+test("locks reply fonts before canvas animation and reveals the archive title in sequence", async () => {
+  const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+  assert.match(app, /document\.fonts\.load\(descriptor, sample\)/);
+  assert.match(app, /document\.fonts\.check\(descriptor, sample\)/);
+  assert.match(app, /await resolveReplyFont\(text, fontSize\)/);
+  assert.match(app, /return '\"Dancing Script\", cursive'/);
+  assert.match(html, /class="archive-view is-entering"/);
+  assert.match(css, /@keyframes archiveMagicTextReveal/);
+  assert.match(css, /@keyframes archiveTitleTextReveal/);
+  assert.match(css, /archiveMagicTextReveal 1\.7s \.18s/);
+  assert.match(css, /archiveTitleTextReveal 2s \.62s/);
 });
 
 test("crossfades the opening cover and returns it to the same shelf slot", async () => {

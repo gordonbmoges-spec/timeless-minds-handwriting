@@ -17,6 +17,9 @@ const REFERENCE_OPEN_MS = 5_600;
 const REFERENCE_CLOSE_MS = 5_150;
 const MIRROR_CLOSE_MS = 520;
 const MIRROR_RETURN_MS = 1_450;
+const BOOK_HANDOFF_FADE_DELAY_MS = 320;
+const BOOK_HANDOFF_REMOVE_MS = 1_120;
+const REPLY_FONT_LOAD_TIMEOUT_MS = 2_200;
 const IDLE_SEND_MS = 1_800;
 const HISTORICAL_PERSONA_IDS = new Set(["confucius", "socrates", "da-vinci", "shakespeare", "jung", "einstein"]);
 const GENERATED_COVER_IMAGES = Object.freeze({
@@ -36,6 +39,7 @@ const customBookStore = createCustomBookStore();
 let customBooks = customBookStore.load();
 let apiSessionConfig = null;
 let purgedLegacyApiSettings = false;
+const replyFontPromises = new Map();
 
 const providerDefaults = {
   aliyun: {
@@ -271,6 +275,7 @@ function deleteCustomBook(persona) {
 function openBook(personaId, button) {
   if (button.classList.contains("is-opening")) return;
   const persona = findAvailablePersona(personaId);
+  warmOpeningCover(persona);
   const hasBookPortal = !reducedMotion && Boolean(persona) && createBookTransitionPortal(button, persona);
   const books = [...elements.personaList.querySelectorAll(".archive-entry")];
   const selectedIndex = Math.max(0, books.indexOf(button));
@@ -286,6 +291,15 @@ function openBook(personaId, button) {
   setTimeout(() => {
     navigateTo(personaPath(personaId));
   }, delay);
+}
+
+function warmOpeningCover(persona) {
+  const source = GENERATED_COVER_IMAGES[persona?.id];
+  if (!source) return;
+  const image = new Image();
+  image.decoding = "async";
+  image.src = source;
+  image.decode?.().catch(() => {});
 }
 
 function createBookTransitionPortal(button, persona) {
@@ -479,8 +493,8 @@ function finishBookReturnToShelf() {
 function handOffBookTransitionPortal() {
   if (!state.bookPortal) return;
   const portal = state.bookPortal;
-  state.bookPortalTimers.push(setTimeout(() => portal.classList.add("is-handing-off"), 80));
-  state.bookPortalTimers.push(setTimeout(clearBookTransitionPortal, 520));
+  state.bookPortalTimers.push(setTimeout(() => portal.classList.add("is-handing-off"), BOOK_HANDOFF_FADE_DELAY_MS));
+  state.bookPortalTimers.push(setTimeout(clearBookTransitionPortal, BOOK_HANDOFF_REMOVE_MS));
 }
 
 function resetArchiveSelection() {
@@ -572,6 +586,8 @@ function showArchive() {
   state.assets = null;
   elements.sceneView.hidden = true;
   elements.archiveView.hidden = false;
+  elements.archiveView.classList.remove("is-entering");
+  requestAnimationFrame(() => elements.archiveView.classList.add("is-entering"));
   elements.archiveView.classList.toggle("is-mirror-returning", isReturningMirror);
   elements.sceneView.classList.remove("is-revealed", "is-book-opening", "is-closing-book", "is-closing-to-shelf", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover", "has-custom-cover", "is-handoff-opening");
   elements.bookDrawer.setAttribute("aria-hidden", "true");
@@ -600,6 +616,7 @@ function showScene(persona, assets) {
   elements.sceneView.style.setProperty("--opening-cover-image", generatedCoverImage ? `url("${generatedCoverImage}")` : "none");
   const openingRatio = state.bookOrigin?.personaId === persona.id ? state.bookOrigin.ratio : 2 / 3;
   elements.sceneView.style.setProperty("--opening-closed-width", `${bookPortalTarget(openingRatio).width}px`);
+  void resolveReplyFont(persona.openingLine, assets.replyFontSize || 36);
   elements.bookDrawer.inert = true;
   state.closing = false;
   const isMirror = persona.id === "magic-mirror";
@@ -1236,24 +1253,53 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function replyFontFor(text) {
+function replyFontKind(text) {
   const value = String(text || "");
   const latin = (value.match(/[A-Za-z]/g) || []).length;
   const cjk = (value.match(/[\u3400-\u9fff]/g) || []).length;
-  return latin > cjk
-    ? '"Dancing Script", "IM FELL English", "Uncial Antiqua", Georgia, serif'
-    : '"ZCOOL XiaoWei", "Kaiti SC", "STKaiti", "KaiTi", serif';
+  return latin > cjk ? "latin" : "cjk";
+}
+
+async function loadReplyFont(family, fontSize, sample) {
+  if (!document.fonts?.load || !document.fonts?.check) return false;
+  const descriptor = `${fontSize}px "${family}"`;
+  if (document.fonts.check(descriptor, sample)) return true;
+  try {
+    await Promise.race([
+      document.fonts.load(descriptor, sample),
+      wait(REPLY_FONT_LOAD_TIMEOUT_MS)
+    ]);
+  } catch {
+    return false;
+  }
+  return document.fonts.check(descriptor, sample);
+}
+
+function resolveReplyFont(text, fontSize) {
+  const kind = replyFontKind(text);
+  const cached = replyFontPromises.get(kind);
+  if (cached) return cached;
+  const sample = kind === "latin" ? "The quick brown fox answers." : "会回应的藏书阁";
+  const promise = (async () => {
+    if (kind === "latin") {
+      if (await loadReplyFont("Dancing Script", fontSize, sample)) return '"Dancing Script", cursive';
+      if (await loadReplyFont("IM FELL English", fontSize, sample)) return '"IM FELL English", Georgia, serif';
+      return "Georgia, serif";
+    }
+    if (await loadReplyFont("ZCOOL XiaoWei", fontSize, sample)) return '"ZCOOL XiaoWei", "Kaiti SC", serif';
+    return '"Kaiti SC", "STKaiti", "KaiTi", serif';
+  })();
+  replyFontPromises.set(kind, promise);
+  return promise;
 }
 
 async function showReplyWithLoadedFont(text, options) {
-  const fontFamily = replyFontFor(text);
+  const presenter = state.reply;
+  const personaId = state.persona?.id;
   const fontSize = options.fontSize || 36;
-  try {
-    await document.fonts?.load?.(`${fontSize}px ${fontFamily}`);
-  } catch {
-    // Canvas will use the declared fallback stack if a font cannot be loaded.
-  }
-  return state.reply?.show(text, { ...options, fontFamily });
+  const fontFamily = await resolveReplyFont(text, fontSize);
+  if (!presenter || presenter !== state.reply || personaId !== state.persona?.id) return;
+  return presenter.show(text, { ...options, fontFamily });
 }
 
 function bookCoverColor(tone) {
