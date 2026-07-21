@@ -66,6 +66,10 @@ test("keeps the selected cover alive through the shelf-to-page handoff", async (
   const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
   const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
   assert.match(app, /function createBookTransitionPortal\(/);
+  assert.match(app, /async function waitForPortalPaint\(portal\)/);
+  assert.match(app, /await Promise\.allSettled\(images\.map/);
+  assert.match(app, /await nextAnimationFrame\(\);\s*await nextAnimationFrame\(\);/s);
+  assert.match(app, /portal\.classList\.remove\("is-priming"\);\s*portal\.classList\.add\("is-ready"\);\s*await nextAnimationFrame\(\);\s*button\.classList\.add\("is-portal-source"\)/s);
   assert.match(app, /hasBookPortal \? SHELF_TRAVEL_MS : 1_520/);
   assert.match(app, /elements\.sceneView\.classList\.toggle\("is-handoff-opening", hasBookHandoff\)/);
   assert.match(app, /BOOK_HANDOFF_FADE_DELAY_MS = 320/);
@@ -73,6 +77,7 @@ test("keeps the selected cover alive through the shelf-to-page handoff", async (
   assert.match(app, /setTimeout\(clearBookTransitionPortal, BOOK_HANDOFF_REMOVE_MS\)/);
   assert.match(css, /@keyframes bookPortalTravel/);
   assert.match(css, /@keyframes handoffBookStage/);
+  assert.match(css, /\.book-transition-portal\.is-priming\s*\{[^}]*opacity:\.001;[^}]*transition:none;/s);
   assert.match(css, /\.persona-list \.shelf-upper\s*\{\s*right:24%;left:27%;/);
   assert.match(css, /\.persona-list \.shelf-lower\s*\{\s*right:24%;left:50%;/);
 });
@@ -147,6 +152,22 @@ test("reconstructs the reference opening with a fixed cover and sequential code-
   assert.match(css, /@keyframes referenceRightPageContract/);
   assert.match(css, /@keyframes referenceCoverCloseV16/);
   assert.match(css, /rotateY\(-180deg\)/);
+});
+
+test("keeps both cover faces composited while the iPad Safari hinge crosses ninety degrees", async () => {
+  const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
+  const coverOpen = css.match(/@keyframes referenceCoverOpenV16\s*\{([\s\S]*?)\n\}/)?.[1] || "";
+  const coverClose = css.match(/@keyframes referenceCoverCloseV16\s*\{([\s\S]*?)\n\}/)?.[1] || "";
+
+  assert.match(css, /\.hinge-front-cover\s*\{[^}]*-webkit-transform-style:preserve-3d;[^}]*backface-visibility:visible;[^}]*-webkit-backface-visibility:visible;[^}]*will-change:transform;[^}]*filter:none;/s);
+  assert.match(css, /\.scene-view\[data-motion="hinge"\] \.opening-book-stage\s*\{[^}]*-webkit-transform-style:preserve-3d;[^}]*will-change:transform,opacity;[^}]*filter:none;/s);
+  assert.match(css, /\.scene-view\[data-motion="hinge"\] \.opening-hinge-rig\s*\{[^}]*-webkit-transform-style:preserve-3d;/s);
+  assert.match(css, /\.hinge-book\s*\{[^}]*-webkit-transform-style:preserve-3d;/s);
+  assert.match(css, /\.hinge-cover-face\s*\{[^}]*backface-visibility:hidden;[^}]*-webkit-backface-visibility:hidden;/s);
+  assert.match(css, /\.hinge-cover-outer\s*\{[^}]*box-shadow:[^}]*transform:translateZ\(\.4px\);/s);
+  assert.match(css, /\.hinge-cover-inner\s*\{[^}]*transform:rotateY\(180deg\) translateZ\(\.4px\);/s);
+  assert.doesNotMatch(coverOpen, /filter:/);
+  assert.doesNotMatch(coverClose, /filter:/);
 });
 
 test("keeps the page core present and crossfades its last second into the identical writable fullscreen state", async () => {

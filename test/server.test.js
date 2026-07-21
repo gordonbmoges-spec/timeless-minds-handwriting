@@ -24,14 +24,14 @@ test("serves the application shell", async () => {
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.equal(response.headers.get("x-frame-options"), "DENY");
   assert.match(response.headers.get("content-security-policy"), /default-src 'self'/);
-  assert.match(await response.text(), /会回应的藏书阁/);
+  assert.match(await response.text(), /魔法书柜/);
 });
 
 test("serves the application shell for every direct persona route", async () => {
   for (const persona of PERSONAS) {
     const response = await fetch(`${baseUrl}/persona/${persona.id}`);
     assert.equal(response.status, 200, persona.id);
-    assert.match(await response.text(), /会回应的藏书阁/);
+    assert.match(await response.text(), /魔法书柜/);
   }
 });
 

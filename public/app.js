@@ -272,11 +272,24 @@ function deleteCustomBook(persona) {
   renderArchive();
 }
 
-function openBook(personaId, button) {
-  if (button.classList.contains("is-opening")) return;
+async function openBook(personaId, button) {
+  if (button.classList.contains("is-opening") || button.classList.contains("is-opening-pending")) return;
   const persona = findAvailablePersona(personaId);
-  warmOpeningCover(persona);
-  const hasBookPortal = !reducedMotion && Boolean(persona) && createBookTransitionPortal(button, persona);
+  button.classList.add("is-opening-pending");
+  button.setAttribute("aria-busy", "true");
+  const coverReady = warmOpeningCover(persona);
+  let hasBookPortal = false;
+  try {
+    const portalReady = !reducedMotion && Boolean(persona)
+      ? createBookTransitionPortal(button, persona)
+      : Promise.resolve(false);
+    [hasBookPortal] = await Promise.all([portalReady, coverReady]);
+  } catch {
+    clearBookTransitionPortal();
+  } finally {
+    button.classList.remove("is-opening-pending");
+    button.removeAttribute("aria-busy");
+  }
   const books = [...elements.personaList.querySelectorAll(".archive-entry")];
   const selectedIndex = Math.max(0, books.indexOf(button));
   elements.personaList.classList.add("is-selecting-book");
@@ -293,16 +306,36 @@ function openBook(personaId, button) {
   }, delay);
 }
 
-function warmOpeningCover(persona) {
+async function warmOpeningCover(persona) {
   const source = GENERATED_COVER_IMAGES[persona?.id];
   if (!source) return;
   const image = new Image();
   image.decoding = "async";
   image.src = source;
-  image.decode?.().catch(() => {});
+  if (typeof image.decode === "function") {
+    await image.decode().catch(() => {});
+  }
 }
 
-function createBookTransitionPortal(button, persona) {
+function nextAnimationFrame() {
+  return new Promise((resolve) => requestAnimationFrame(resolve));
+}
+
+async function waitForPortalPaint(portal) {
+  const images = [...portal.querySelectorAll("img")];
+  await Promise.allSettled(images.map((image) => {
+    if (typeof image.decode === "function") return image.decode();
+    if (image.complete) return Promise.resolve();
+    return new Promise((resolve) => {
+      image.addEventListener("load", resolve, { once: true });
+      image.addEventListener("error", resolve, { once: true });
+    });
+  }));
+  await nextAnimationFrame();
+  await nextAnimationFrame();
+}
+
+async function createBookTransitionPortal(button, persona) {
   const visual = button.querySelector(".flat-cover-visual");
   if (!visual) return false;
   clearBookTransitionPortal();
@@ -319,7 +352,7 @@ function createBookTransitionPortal(button, persona) {
   const scale = targetWidth / rect.width;
 
   const portal = document.createElement("div");
-  portal.className = "book-transition-portal";
+  portal.className = "book-transition-portal is-priming";
   portal.dataset.motion = state.motionMode;
   portal.setAttribute("aria-hidden", "true");
   if (state.motionMode === "legacy") {
@@ -367,8 +400,13 @@ function createBookTransitionPortal(button, persona) {
   portal.append(cover, title);
   document.body.append(portal);
   state.bookPortal = portal;
+  await waitForPortalPaint(portal);
+  if (state.bookPortal !== portal || !portal.isConnected || !button.isConnected) return false;
+  portal.classList.remove("is-priming");
+  portal.classList.add("is-ready");
+  await nextAnimationFrame();
   button.classList.add("is-portal-source");
-  requestAnimationFrame(() => portal.classList.add("is-travelling"));
+  portal.classList.add("is-travelling");
   return true;
 }
 
@@ -501,7 +539,8 @@ function resetArchiveSelection() {
   elements.archiveView.classList.remove("is-opening-book");
   elements.personaList.classList.remove("is-selecting-book");
   for (const book of elements.personaList.querySelectorAll(".archive-entry")) {
-    book.classList.remove("is-opening", "is-receding");
+    book.classList.remove("is-opening", "is-opening-pending", "is-receding");
+    book.removeAttribute("aria-busy");
     book.style.removeProperty("--recede-delay");
   }
 }
@@ -594,7 +633,7 @@ function showArchive() {
   elements.bookDrawer.inert = true;
   elements.toggleBookDrawer.setAttribute("aria-expanded", "false");
   state.closing = false;
-  document.title = "会回应的藏书阁";
+  document.title = "魔法书柜";
   if (isReturningBook) requestAnimationFrame(finishBookReturnToShelf);
 }
 
@@ -620,9 +659,9 @@ function showScene(persona, assets) {
   elements.bookDrawer.inert = true;
   state.closing = false;
   const isMirror = persona.id === "magic-mirror";
-  elements.backToArchive.textContent = isMirror ? "离开魔镜，返回藏书阁" : "合上并放回书架";
+  elements.backToArchive.textContent = isMirror ? "离开魔镜，返回魔法书柜" : "合上并放回书架";
   elements.pinchHint.textContent = isMirror ? "双指向内收拢 · 离开魔镜" : "双指向内收拢 · 合上书籍";
-  document.title = `${persona.name} · 会回应的藏书阁`;
+  document.title = `${persona.name} · 魔法书柜`;
 
   elements.sceneBackdrop.style.backgroundImage = assets.background ? `url("${assets.background}")` : assets.backgroundCss;
   elements.sceneBackdrop.style.backgroundPosition = assets.backgroundFocus;
@@ -1279,7 +1318,7 @@ function resolveReplyFont(text, fontSize) {
   const kind = replyFontKind(text);
   const cached = replyFontPromises.get(kind);
   if (cached) return cached;
-  const sample = kind === "latin" ? "The quick brown fox answers." : "会回应的藏书阁";
+  const sample = kind === "latin" ? "The quick brown fox answers." : "魔法书柜";
   const promise = (async () => {
     if (kind === "latin") {
       if (await loadReplyFont("Dancing Script", fontSize, sample)) return '"Dancing Script", cursive';
