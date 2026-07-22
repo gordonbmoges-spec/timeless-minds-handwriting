@@ -101,9 +101,17 @@ test("crossfades the opening cover and returns it to the same shelf slot", async
   const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
   const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
   const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
-  assert.match(app, /function createBookReturnPortal\(/);
+  assert.match(app, /async function createBookReturnPortal\(/);
+  assert.match(app, /portal\.className = "book-transition-portal book-return-portal is-priming"/);
+  assert.match(app, /await waitForPortalPaint\(portal\);/);
+  assert.match(app, /portal\.classList\.add\("is-ready"\);\s*portal\.classList\.remove\("is-priming"\);\s*await nextAnimationFrame\(\);\s*await nextAnimationFrame\(\);/s);
+  assert.match(app, /!await createBookReturnPortal\(state\.persona\)/);
   assert.match(app, /function finishBookReturnToShelf\(/);
   assert.match(app, /target\.classList\.add\("is-return-target"\)/);
+  assert.match(app, /BOOK_RETURN_TRAVEL_MS = 1_650/);
+  assert.match(app, /elements\.personaList\.classList\.remove\("is-returning-book"\);\s*target\.classList\.remove\("is-return-target"\);\s*await nextAnimationFrame\(\);\s*await nextAnimationFrame\(\);[\s\S]*portal\.classList\.add\("is-settling"\)/);
+  assert.match(css, /\.book-return-portal\.is-ready\s*\{[^}]*opacity:1;[^}]*transition:none;/s);
+  assert.match(css, /\.book-return-portal\.is-settling\s*\{[^}]*opacity:0;[^}]*transition:opacity 180ms linear;/s);
   assert.doesNotMatch(css, /portalThicknessIn/);
   assert.match(css, /filter:blur\(1\.1px\) brightness\(\.9\)/);
   assert.match(css, /0%,3% \{ opacity:0;filter:blur\(1\.1px\) brightness\(\.9\)/);

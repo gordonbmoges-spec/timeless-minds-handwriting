@@ -8,8 +8,10 @@ const { chromium, webkit } = require("playwright");
 const baseUrl = process.argv[2] || "http://localhost:3109";
 const outputDirectory = path.resolve(process.argv[3] || "artifacts/ipad-cover-continuity");
 const personaId = process.argv[4] || "einstein";
+const flow = process.argv[5] || "open";
+const decodeDelayMs = Number(process.argv[6] || 0);
 const frameIntervalMs = 50;
-const frameCount = 140;
+const frameCount = flow === "close" ? 180 : 140;
 
 await mkdir(outputDirectory, { recursive: true });
 
@@ -33,16 +35,33 @@ const context = await browser.newContext({
 const page = await context.newPage();
 const recordedVideo = page.video();
 const browserMessages = [];
+if (decodeDelayMs > 0) {
+  await page.addInitScript((delayMs) => {
+    const originalDecode = HTMLImageElement.prototype.decode;
+    HTMLImageElement.prototype.decode = async function delayedDecode() {
+      await Promise.allSettled([
+        typeof originalDecode === "function" ? originalDecode.call(this) : Promise.resolve(),
+        new Promise((resolve) => setTimeout(resolve, delayMs))
+      ]);
+    };
+  }, decodeDelayMs);
+}
 page.on("console", (message) => {
   if (["warning", "error"].includes(message.type())) browserMessages.push(`${message.type()}: ${message.text()}`);
 });
 page.on("pageerror", (error) => browserMessages.push(`pageerror: ${error.message}`));
 
-await page.goto(`${baseUrl}/?cover-continuity=${Date.now()}`, { waitUntil: "networkidle" });
-const book = page.locator(`[data-persona-id="${personaId}"]`);
-await book.waitFor({ state: "visible" });
-await page.waitForTimeout(300);
-await book.click({ position: { x: 40, y: 80 } });
+if (flow === "close") {
+  await page.goto(`${baseUrl}/persona/${personaId}?cover-continuity=${Date.now()}`, { waitUntil: "networkidle" });
+  await page.waitForFunction(() => !document.querySelector(".scene-view")?.classList.contains("is-book-opening"), null, { timeout: 10_000 });
+  await page.evaluate(() => document.querySelector("#backToArchive")?.click());
+} else {
+  await page.goto(`${baseUrl}/?cover-continuity=${Date.now()}`, { waitUntil: "networkidle" });
+  const book = page.locator(`[data-persona-id="${personaId}"]`);
+  await book.waitFor({ state: "visible" });
+  await page.waitForTimeout(300);
+  await book.click({ position: { x: 40, y: 80 } });
+}
 
 const startedAt = Date.now();
 const observations = [];
@@ -50,12 +69,18 @@ for (let index = 0; index < frameCount; index += 1) {
   const targetTime = index * frameIntervalMs;
   const waitTime = targetTime - (Date.now() - startedAt);
   if (waitTime > 0) await page.waitForTimeout(waitTime);
-  const state = await page.evaluate(() => {
+  const state = await page.evaluate((activePersonaId) => {
     const source = document.querySelector(".flat-cover-card.is-opening, .flat-cover-card.is-opening-pending");
     const portal = document.querySelector(".book-transition-portal");
     const frontCover = document.querySelector(".hinge-front-cover");
     const outerCover = document.querySelector(".hinge-cover-outer");
     const innerCover = document.querySelector(".hinge-cover-inner");
+    const paper = document.querySelector(".paper-object");
+    const stage = document.querySelector(".opening-book-stage");
+    const archive = document.querySelector(".archive-view");
+    const scene = document.querySelector(".scene-view");
+    const target = [...document.querySelectorAll(".flat-cover-card")]
+      .find((card) => card.dataset.personaId === activePersonaId);
     const snapshot = (element) => {
       if (!element) return null;
       const style = getComputedStyle(element);
@@ -75,9 +100,15 @@ for (let index = 0; index < frameCount; index += 1) {
       portal: snapshot(portal),
       frontCover: snapshot(frontCover),
       outerCover: snapshot(outerCover),
-      innerCover: snapshot(innerCover)
+      innerCover: snapshot(innerCover),
+      paper: snapshot(paper),
+      stage: snapshot(stage),
+      target: snapshot(target),
+      targetHiddenForReturn: target?.classList.contains("is-return-target") ?? null,
+      archiveHidden: archive?.hidden ?? null,
+      sceneHidden: scene?.hidden ?? null
     };
-  });
+  }, personaId);
   observations.push({ frame: index, timeMs: Date.now() - startedAt, ...state });
 }
 
@@ -86,4 +117,4 @@ const videoPath = path.join(outputDirectory, "cover-continuity.webm");
 await recordedVideo.saveAs(videoPath);
 await context.close();
 await browser.close();
-process.stdout.write(`${JSON.stringify({ engine, outputDirectory, videoPath, observations, browserMessages }, null, 2)}\n`);
+process.stdout.write(`${JSON.stringify({ engine, flow, decodeDelayMs, outputDirectory, videoPath, observations, browserMessages }, null, 2)}\n`);

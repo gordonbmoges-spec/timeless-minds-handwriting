@@ -3239,6 +3239,14 @@ body {
 .book-return-portal[data-motion="hinge"].is-returning {
   animation:bookPortalReturnSharp 1.65s cubic-bezier(.45,.02,.22,1) both;
 }
+.book-return-portal.is-ready {
+  opacity:1;
+  transition:none;
+}
+.book-return-portal.is-settling {
+  opacity:0;
+  transition:opacity 180ms linear;
+}
 .persona-list.is-returning-book .archive-entry:not(.is-return-target) {
   animation:booksReturnToShelf 1.05s 180ms ease both;
 }

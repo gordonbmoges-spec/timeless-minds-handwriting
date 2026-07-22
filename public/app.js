@@ -19,6 +19,8 @@ const MIRROR_CLOSE_MS = 520;
 const MIRROR_RETURN_MS = 1_450;
 const BOOK_HANDOFF_FADE_DELAY_MS = 320;
 const BOOK_HANDOFF_REMOVE_MS = 1_120;
+const BOOK_RETURN_TRAVEL_MS = 1_650;
+const BOOK_RETURN_CROSSFADE_MS = 180;
 const REPLY_FONT_LOAD_TIMEOUT_MS = 2_200;
 const IDLE_SEND_MS = 1_800;
 const HISTORICAL_PERSONA_IDS = new Set(["confucius", "socrates", "da-vinci", "shakespeare", "jung", "einstein"]);
@@ -431,14 +433,14 @@ function bookPortalTarget(ratio) {
   };
 }
 
-function createBookReturnPortal(persona) {
+async function createBookReturnPortal(persona) {
   const source = GENERATED_COVER_IMAGES[persona?.id];
   if (!source && !persona?.isCustom) return false;
   clearBookTransitionPortal();
   const ratio = state.bookOrigin?.personaId === persona.id ? state.bookOrigin.ratio : 2 / 3;
   const rect = bookPortalTarget(ratio);
   const portal = document.createElement("div");
-  portal.className = "book-transition-portal book-return-portal";
+  portal.className = "book-transition-portal book-return-portal is-priming";
   portal.dataset.motion = state.motionMode;
   portal.setAttribute("aria-hidden", "true");
   portal.style.left = `${rect.left}px`;
@@ -464,6 +466,12 @@ function createBookReturnPortal(persona) {
   portal.append(cover, title);
   document.body.append(portal);
   state.bookPortal = portal;
+  await waitForPortalPaint(portal);
+  if (state.bookPortal !== portal || !portal.isConnected) return false;
+  portal.classList.add("is-ready");
+  portal.classList.remove("is-priming");
+  await nextAnimationFrame();
+  await nextAnimationFrame();
   state.returningBook = { personaId: persona.id };
   return true;
 }
@@ -519,13 +527,21 @@ function finishBookReturnToShelf() {
   portal.style.setProperty("--return-scale", String(returnScale));
   portal.style.setProperty("--return-label-end", `${Math.max(9, 12 / returnScale)}px`);
   requestAnimationFrame(() => portal.classList.add("is-returning"));
-  state.bookPortalTimers.push(setTimeout(() => {
-    target.classList.remove("is-return-target");
+  state.bookPortalTimers.push(setTimeout(async () => {
+    if (state.bookPortal !== portal || state.returningBook !== returning) return;
     elements.personaList.classList.remove("is-returning-book");
-    state.returningBook = null;
-    state.bookOrigin = null;
-    clearBookTransitionPortal();
-  }, 1_520));
+    target.classList.remove("is-return-target");
+    await nextAnimationFrame();
+    await nextAnimationFrame();
+    if (state.bookPortal !== portal || state.returningBook !== returning) return;
+    portal.classList.add("is-settling");
+    state.bookPortalTimers.push(setTimeout(() => {
+      if (state.bookPortal !== portal || state.returningBook !== returning) return;
+      state.returningBook = null;
+      state.bookOrigin = null;
+      clearBookTransitionPortal();
+    }, BOOK_RETURN_CROSSFADE_MS));
+  }, BOOK_RETURN_TRAVEL_MS));
 }
 
 function handOffBookTransitionPortal() {
@@ -820,8 +836,8 @@ function closeBookToShelf() {
     state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("top"), 850));
   }
   if (canReturnToShelf) {
-    state.flipTimers.push(setTimeout(() => {
-      if (!state.persona || !createBookReturnPortal(state.persona)) {
+    state.flipTimers.push(setTimeout(async () => {
+      if (!state.persona || !await createBookReturnPortal(state.persona)) {
         navigateTo("/");
         return;
       }
