@@ -3394,3 +3394,71 @@ body {
     animation:none;
   }
 }
+
+/* V20 · iPad transition continuity: fixed scenery, silent pinch, and one-way book travel. */
+.scene-view .scene-layout,
+.scene-view.is-revealed .scene-layout {
+  transform:none;
+  transition:opacity 420ms cubic-bezier(.22,.68,.22,1);
+}
+
+.archive-view.is-opening-book {
+  opacity:1;
+  filter:none!important;
+  transform:none!important;
+  transition:none;
+}
+
+.scene-view.is-pinching .paper-object {
+  transform:none;
+  filter:none;
+  transition:none;
+}
+
+.archive-view::before,
+.scene-view.is-handoff-opening.is-book-opening .opening-sequence,
+.scene-view.is-closing-to-shelf.is-closing-book .opening-sequence {
+  background-attachment:scroll;
+}
+
+.opening-sequence,
+.book-transition-portal,
+.scene-view[data-motion="hinge"] .opening-book-stage {
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+  transform:translateZ(0);
+}
+
+@keyframes referenceStageClose {
+  0%,10% { opacity:1;transform:translate3d(-25%,0,0) scale(2.9); }
+  100% { opacity:1;transform:translate3d(-25%,0,0) scale(1); }
+}
+
+@keyframes referenceRightPageContract {
+  0%,8% { opacity:1;transform:none;clip-path:inset(0); }
+  16%,100% { opacity:0;transform:none;clip-path:inset(0); }
+}
+
+@keyframes referenceLeafOpenV16 {
+  0% { opacity:0;transform:translateZ(var(--leaf-z)) rotateY(0); }
+  2% { opacity:1; }
+  50% { opacity:1;transform:translateZ(26px) rotateY(-90deg); }
+  100% { opacity:1;transform:translateZ(var(--leaf-z)) rotateY(-180deg); }
+}
+
+@keyframes referenceLeafCloseV16 {
+  0% { opacity:1;transform:translateZ(var(--leaf-z)) rotateY(-180deg); }
+  50% { opacity:1;transform:translateZ(26px) rotateY(-90deg); }
+  98% { opacity:1; }
+  100% { opacity:0;transform:translateZ(var(--leaf-z)) rotateY(0); }
+}
+
+@keyframes bookPortalReturnSharp {
+  0% { transform:translate3d(0,0,0) scale(1); }
+  100% { transform:translate3d(var(--return-x),var(--return-y),0) scale(var(--return-scale)); }
+}
+
+@keyframes booksReturnToShelf {
+  0% { opacity:0;transform:translate3d(0,4px,0) scale(.985); }
+  100% { opacity:1;transform:translate3d(0,0,0) scale(1); }
+}

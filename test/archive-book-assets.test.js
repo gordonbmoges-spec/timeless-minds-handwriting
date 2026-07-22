@@ -252,3 +252,19 @@ test("keeps the parchment panoramic by default and blocks native selection insid
   assert.match(ink, /addEventListener\("contextmenu", this\.preventNativeInteraction\)/);
   assert.match(ink, /if \(event\?\.cancelable\) event\.preventDefault\(\)/);
 });
+
+test("keeps iPad opening and closing transitions on one stable trajectory", async () => {
+  const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
+  const stableClose = css.match(/\/\* V20[\s\S]*?@keyframes referenceStageClose\s*\{([\s\S]*?)\n\}/)?.[1] || "";
+  const stableReturn = css.match(/\/\* V20[\s\S]*?@keyframes bookPortalReturnSharp\s*\{([\s\S]*?)\n\}/)?.[1] || "";
+  const stableLeaves = css.match(/\/\* V20[\s\S]*?@keyframes referenceLeafCloseV16\s*\{([\s\S]*?)\n\}/)?.[1] || "";
+
+  assert.match(css, /\/\* V20[\s\S]*?\.archive-view\.is-opening-book\s*\{[^}]*transform:none!important;/s);
+  assert.match(css, /\/\* V20[\s\S]*?\.scene-view\.is-pinching \.paper-object\s*\{[^}]*transform:none;[^}]*filter:none;[^}]*transition:none;/s);
+  assert.match(css, /\/\* V20[\s\S]*?background-attachment:scroll;/s);
+  assert.match(stableClose, /translate3d\(-25%,0,0\) scale\(2\.9\)/);
+  assert.match(stableClose, /translate3d\(-25%,0,0\) scale\(1\)/);
+  assert.doesNotMatch(stableClose, /translateX\(0\)|filter:/);
+  assert.doesNotMatch(stableReturn, /calc\(|filter:/);
+  assert.doesNotMatch(stableLeaves, /filter:/);
+});
