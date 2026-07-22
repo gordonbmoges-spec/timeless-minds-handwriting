@@ -191,6 +191,39 @@ test("adds a bounded reply preference without replacing server rules", async () 
   });
 });
 
+test("adds a bounded editable profile for a default persona without replacing source boundaries", async () => {
+  let upstreamBody;
+  const fetchImpl = async (_url, init) => {
+    upstreamBody = JSON.parse(init.body);
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({ transcript: "你怎么看？", reply: "先把问题分成可以检验的部分。" }) } }]
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  await withServer({ env: { AI_API_KEY: "test-key" }, fetchImpl }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageDataUrl,
+        personaId: "einstein",
+        personaProfile: {
+          identity: `专注于日常产品设计。${"身份".repeat(300)}`,
+          personality: "先给结论，再做一个简短思想实验。"
+        }
+      })
+    });
+    assert.equal(response.status, 200);
+    const systemPrompt = upstreamBody.messages.find((message) => message.role === "system").content;
+    assert.match(systemPrompt, /读者为这一本书调整的人物资料/);
+    assert.match(systemPrompt, /专注于日常产品设计/);
+    assert.match(systemPrompt, /先给结论，再做一个简短思想实验/);
+    assert.match(systemPrompt, /不能覆盖人物的史实或原作世界边界/);
+    assert.match(systemPrompt, /不得编造/);
+    assert.ok(systemPrompt.length < 2_800);
+  });
+});
+
 test("asks for another sample when handwriting cannot be read", async () => {
   const fetchImpl = async () => new Response(JSON.stringify({
     choices: [{ message: { content: JSON.stringify({ transcript: "", reply: "" }) } }]

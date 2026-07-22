@@ -5,6 +5,7 @@ import { shouldCloseFromPinch, shouldOpenDrawerFromEdge } from "/modules/book-ge
 import { createHistoryStore } from "/modules/history-store.js";
 import { createCustomBookStore } from "/modules/custom-books.js";
 import { createPersonaMemoryStore } from "/modules/persona-memory-store.js";
+import { applyPersonaProfile, createPersonaProfileStore } from "/modules/persona-profile-store.js";
 import { InkEngine } from "/modules/ink-engine.js";
 import { ReplyPresenter } from "/modules/reply-presenter.js";
 import { navigateTo, personaPath, routeFromPath } from "/modules/router.js";
@@ -37,6 +38,7 @@ const GENERATED_COVER_IMAGES = Object.freeze({
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const historyStore = createHistoryStore();
 const personaMemoryStore = createPersonaMemoryStore();
+const personaProfileStore = createPersonaProfileStore();
 const customBookStore = createCustomBookStore();
 let customBooks = customBookStore.load();
 let apiSessionConfig = null;
@@ -71,8 +73,9 @@ const elements = Object.fromEntries([
   "keywordList", "metricWidth", "metricInput", "modeCopy", "openApiSettings", "openHistory", "openReplySettings",
   "apiSettingsDialog", "apiSettingsForm", "closeApiSettings", "clearApiSettings",
   "toggleApiKey", "apiProvider", "apiKey", "apiBaseUrl", "apiModel", "modelHint",
-  "apiFormMessage", "replySettingsDialog", "replySettingsForm", "closeReplySettings",
-  "clearReplySettings", "personaInstruction", "personaMemory", "replyFormMessage", "historyDialog",
+  "apiFormMessage", "replySettingsDialog", "replySettingsForm", "replySettingsTitle", "closeReplySettings",
+  "clearReplySettings", "defaultPersonaIdentity", "defaultPersonaPersonality", "personaIdentity",
+  "personaPersonality", "personaInstruction", "personaMemory", "replyFormMessage", "historyDialog",
   "closeHistory", "clearHistory", "historyList", "historyTitle", "createBookDialog",
   "createBookForm", "closeCreateBook", "customBookTitle", "customPersonaName", "customIdentity",
   "customPersonality", "customMemory", "customOpeningLine", "createBookMessage",
@@ -265,6 +268,7 @@ function deleteCustomBook(persona) {
   if (!approved) return;
   customBooks = customBookStore.remove(persona.id);
   personaMemoryStore.clear(persona.id);
+  personaProfileStore.clear(persona.id);
   historyStore.clear(persona.id);
   try {
     localStorage.removeItem(`${REPLY_PREFERENCE_PREFIX}${persona.id}`);
@@ -572,6 +576,9 @@ function bindGlobalEvents() {
   elements.sceneView.addEventListener("pointermove", trackBookGesture, true);
   elements.sceneView.addEventListener("pointerup", endBookGesture, true);
   elements.sceneView.addEventListener("pointercancel", endBookGesture, true);
+  for (const eventName of ["contextmenu", "selectstart", "dragstart"]) {
+    elements.writingSurface.addEventListener(eventName, preventNativeWritingSelection);
+  }
   addEventListener("keydown", (event) => {
     if (event.key !== "Escape" || elements.sceneView.hidden) return;
     if (elements.sceneView.classList.contains("drawer-open")) setBookDrawer(false);
@@ -756,6 +763,10 @@ function toggleBookDrawer() {
   setBookDrawer(!elements.sceneView.classList.contains("drawer-open"));
 }
 
+function preventNativeWritingSelection(event) {
+  event.preventDefault();
+}
+
 function setBookDrawer(open) {
   if (elements.sceneView.hidden || state.closing) return;
   elements.sceneView.classList.toggle("drawer-open", Boolean(open));
@@ -766,7 +777,7 @@ function setBookDrawer(open) {
 }
 
 function trackBookGesture(event) {
-  if (event.pointerType !== "touch" || elements.sceneView.hidden || state.closing) return;
+  if (!["touch", "mouse"].includes(event.pointerType) || elements.sceneView.hidden || state.closing) return;
   const point = { id: event.pointerId, x: event.clientX, y: event.clientY };
   if (event.type === "pointerdown") {
     state.touchPoints.set(event.pointerId, point);
@@ -796,7 +807,7 @@ function trackBookGesture(event) {
 }
 
 function endBookGesture(event) {
-  if (event.pointerType !== "touch") return;
+  if (!["touch", "mouse"].includes(event.pointerType)) return;
   state.touchPoints.delete(event.pointerId);
   if (state.touchPoints.size < 2) {
     state.pinchStart = null;
@@ -1029,6 +1040,7 @@ async function commitPage() {
       history: state.history.slice(0, 6).reverse(),
       personaInstruction: readReplyPreference(state.persona.id),
       personaMemory: readPersonaMemory(state.persona.id),
+      personaProfile: state.persona.isCustom ? null : personaProfileStore.load(state.persona.id),
       customPersona: state.persona.isCustom ? {
         name: state.persona.name,
         bookTitle: state.persona.bookTitle,
@@ -1197,21 +1209,37 @@ function showApiFormMessage(message, type) {
 
 function showReplySettings() {
   if (!state.persona) return;
+  const original = findOriginalPersona(state.persona.id);
+  const savedProfile = personaProfileStore.load(state.persona.id);
+  const originalIdentity = original?.identity || "这本书尚未记录原始身份背景。";
+  const originalPersonality = original?.personality || "这本书尚未记录原始性格与回答口吻。";
+  elements.defaultPersonaIdentity.textContent = originalIdentity;
+  elements.defaultPersonaPersonality.textContent = originalPersonality;
+  elements.personaIdentity.value = savedProfile?.identity || original?.identity || "";
+  elements.personaPersonality.value = savedProfile?.personality || original?.personality || "";
   elements.personaInstruction.value = readReplyPreference(state.persona.id);
   elements.personaMemory.value = readPersonaMemory(state.persona.id);
-  elements.replySettingsTitle.textContent = `${state.persona.name} · 回复方式`;
+  elements.replySettingsTitle.textContent = `${state.persona.name} · 人物设定与记忆`;
   elements.replyFormMessage.textContent = "";
   elements.replyFormMessage.className = "form-message";
   elements.replySettingsDialog.showModal();
-  elements.personaInstruction.focus();
+  elements.personaIdentity.focus();
 }
 
 function saveReplyPreference(event) {
   event.preventDefault();
   if (!state.persona) return;
+  const original = findOriginalPersona(state.persona.id);
+  const identity = elements.personaIdentity.value.replace(/\s+/g, " ").trim().slice(0, 500);
+  const personality = elements.personaPersonality.value.replace(/\s+/g, " ").trim().slice(0, 500);
   const value = elements.personaInstruction.value.replace(/\s+/g, " ").trim().slice(0, 300);
   const memory = elements.personaMemory.value.replace(/\s+/g, " ").trim().slice(0, 600);
   try {
+    const profileIsDefault = identity === (original?.identity || "") && personality === (original?.personality || "");
+    const profileSaved = profileIsDefault
+      ? personaProfileStore.clear(state.persona.id)
+      : personaProfileStore.save(state.persona.id, { identity, personality });
+    if (!profileSaved) throw new Error("profile_not_saved");
     if (value) localStorage.setItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`, value);
     else localStorage.removeItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`);
     if (!personaMemoryStore.save(state.persona.id, memory)) throw new Error("memory_not_saved");
@@ -1219,17 +1247,25 @@ function saveReplyPreference(event) {
     showReplyFormMessage("浏览器不允许保存这项设置。", "error");
     return;
   }
+  elements.personaIdentity.value = identity;
+  elements.personaPersonality.value = personality;
   elements.personaInstruction.value = value;
   elements.personaMemory.value = memory;
-  showReplyFormMessage(value || memory ? "回复偏好与长期记忆已保存。" : "已恢复人物默认回复方式并清空长期记忆。", "success");
+  state.persona = findAvailablePersona(state.persona.id);
+  showReplyFormMessage("人物设定、回复偏好与长期记忆已保存。", "success");
   setTimeout(() => elements.replySettingsDialog.close(), reducedMotion ? 0 : 500);
 }
 
 function clearSavedReplyPreference() {
   if (!state.persona) return;
+  const original = findOriginalPersona(state.persona.id);
   try { localStorage.removeItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`); } catch {}
+  personaProfileStore.clear(state.persona.id);
+  elements.personaIdentity.value = original?.identity || "";
+  elements.personaPersonality.value = original?.personality || "";
   elements.personaInstruction.value = "";
-  showReplyFormMessage("已恢复人物默认回复方式；长期记忆仍然保留。", "success");
+  state.persona = findAvailablePersona(state.persona.id);
+  showReplyFormMessage("已恢复原本人设与默认回复方式；长期记忆仍然保留。", "success");
 }
 
 function readReplyPreference(personaId) {
@@ -1366,10 +1402,15 @@ function bookCoverColor(tone) {
 }
 
 function allPersonas() {
-  return [...PERSONAS, ...customBooks];
+  return [...PERSONAS, ...customBooks].map((persona) => applyPersonaProfile(persona, personaProfileStore.load(persona.id)));
 }
 
 function findAvailablePersona(id) {
+  const persona = findOriginalPersona(id);
+  return persona ? applyPersonaProfile(persona, personaProfileStore.load(persona.id)) : null;
+}
+
+function findOriginalPersona(id) {
   return findPersona(id) || customBooks.find((book) => book.id === id) || null;
 }
 

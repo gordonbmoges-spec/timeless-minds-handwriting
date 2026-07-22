@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
+import { PERSONAS } from "../public/data/personas.js";
 
 const bookIds = [
   "confucius",
@@ -220,4 +221,34 @@ test("adds a third shelf and gives custom books one editable memory-backed cover
   assert.match(app, /customBookStore\.remove\(persona\.id\)/);
   assert.match(app, /personaMemoryStore\.clear\(persona\.id\)/);
   assert.match(app, /historyStore\.clear\(persona\.id\)/);
+});
+
+test("gives all nine default books visible original profiles and editable profile fields", async () => {
+  assert.equal(PERSONAS.length, 9);
+  for (const persona of PERSONAS) {
+    assert.ok(persona.identity?.length > 20, `${persona.id} needs an original identity`);
+    assert.ok(persona.personality?.length > 20, `${persona.id} needs an original personality`);
+  }
+  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(html, /原本人设 · 只读/);
+  assert.match(html, /id="defaultPersonaIdentity"/);
+  assert.match(html, /id="defaultPersonaPersonality"/);
+  assert.match(html, /id="personaIdentity"[^>]*maxlength="500"/);
+  assert.match(html, /id="personaPersonality"[^>]*maxlength="500"/);
+  assert.match(app, /personaProfileStore\.save\(state\.persona\.id/);
+  assert.match(app, /personaProfile: state\.persona\.isCustom \? null : personaProfileStore\.load/);
+});
+
+test("keeps the parchment panoramic by default and blocks native selection inside handwriting", async () => {
+  const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const ink = await readFile(new URL("../public/modules/ink-engine.js", import.meta.url), "utf8");
+  assert.match(css, /\.drawer-pull\s*\{[^}]*width: 1px;[^}]*opacity: 0;[^}]*pointer-events: none;/s);
+  assert.match(app, /shouldOpenDrawerFromEdge\(state\.edgePullStart, point\)/);
+  assert.match(app, /\["touch", "mouse"\]\.includes\(event\.pointerType\)/);
+  assert.match(css, /\.writing-surface\s*\{[^}]*-webkit-user-select: none;[^}]*user-select: none;[^}]*-webkit-touch-callout: none;/s);
+  assert.match(css, /#inkCanvas[^\n]*touch-action: none;[^\n]*outline:none;/);
+  assert.match(ink, /addEventListener\("contextmenu", this\.preventNativeInteraction\)/);
+  assert.match(ink, /if \(event\?\.cancelable\) event\.preventDefault\(\)/);
 });

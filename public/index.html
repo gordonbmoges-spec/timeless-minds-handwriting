@@ -266,13 +266,32 @@
     <dialog class="settings-dialog" id="replySettingsDialog" aria-labelledby="replySettingsTitle">
       <form class="settings-form" id="replySettingsForm">
         <header class="dialog-header">
-          <div><p class="eyebrow">Reply Preference</p><h2 id="replySettingsTitle">调整回复方式</h2></div>
+          <div><p class="eyebrow">Persona & Memory</p><h2 id="replySettingsTitle">人物设定与记忆</h2></div>
           <button class="dialog-close" id="closeReplySettings" type="button" aria-label="关闭回复设置">×</button>
         </header>
+        <section class="original-persona-card" aria-labelledby="originalPersonaTitle">
+          <div class="original-persona-heading">
+            <p class="section-label" id="originalPersonaTitle">原本人设 · 只读</p>
+            <span>随时可恢复</span>
+          </div>
+          <dl class="original-persona-grid">
+            <div><dt>身份背景</dt><dd id="defaultPersonaIdentity"></dd></div>
+            <div><dt>性格与回答口吻</dt><dd id="defaultPersonaPersonality"></dd></div>
+          </dl>
+        </section>
         <div class="form-field">
-          <label for="personaInstruction">你希望他怎样回答</label>
+          <label for="personaIdentity">当前身份背景（可修改）</label>
+          <textarea id="personaIdentity" name="personaIdentity" maxlength="500" rows="4" placeholder="说明这个人物是谁、来自哪里、知道什么。"></textarea>
+        </div>
+        <div class="form-field">
+          <label for="personaPersonality">当前性格与回答口吻（可修改）</label>
+          <textarea id="personaPersonality" name="personaPersonality" maxlength="500" rows="4" placeholder="说明性格、思考方式和希望采用的表达方式。"></textarea>
+          <p class="field-hint">修改会叠加在原始人物的史实、作品世界与安全边界之内。</p>
+        </div>
+        <div class="form-field">
+          <label for="personaInstruction">额外回复偏好（可选）</label>
           <textarea id="personaInstruction" name="personaInstruction" maxlength="300" rows="5" placeholder="例如：先直接回答，少引用经典，用更生活化的语言。"></textarea>
-          <p class="field-hint">只调整当前人物的表达偏好；人物身份、史实边界和禁止编造规则不会改变。</p>
+          <p class="field-hint">用于临时强调回答方式，不替代上面的人物设定。</p>
         </div>
         <div class="form-field">
           <label for="personaMemory">这本书要长期记住什么</label>
@@ -281,7 +300,7 @@
         </div>
         <p class="form-message" id="replyFormMessage" aria-live="polite"></p>
         <footer class="dialog-actions">
-          <button class="secondary-button" id="clearReplySettings" type="button">恢复默认</button>
+          <button class="secondary-button" id="clearReplySettings" type="button">恢复原本人设</button>
           <button class="primary-button" type="submit">保存设置</button>
         </footer>
       </form>
