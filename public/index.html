@@ -5,20 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0b0e0c" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="回应藏书阁" />
+    <meta name="apple-mobile-web-app-title" content="魔法书柜" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="application-name" content="会回应的藏书阁" />
+    <meta name="application-name" content="魔法书柜" />
     <meta name="description" content="打开一本会回应你的书，与思想者和魔法物件手写对话" />
-    <meta property="og:title" content="会回应的藏书阁" />
+    <meta property="og:title" content="魔法书柜" />
     <meta property="og:description" content="打开一本会回应你的书" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://timeless-minds-teng.ymfreemantiffany8or1.chatgpt.site/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="会回应的藏书阁" />
+    <meta name="twitter:title" content="魔法书柜" />
     <meta name="twitter:description" content="打开一本会回应你的书" />
     <meta name="twitter:image" content="https://timeless-minds-teng.ymfreemantiffany8or1.chatgpt.site/og.png" />
-    <title>会回应的藏书阁</title>
+    <title>魔法书柜</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/assets/app-icon-180.png" />
@@ -26,7 +26,7 @@
   </head>
   <body>
     <div class="app-root">
-      <section class="archive-view" id="archiveView" aria-labelledby="archiveTitle">
+      <section class="archive-view is-entering" id="archiveView" aria-labelledby="archiveTitle">
         <div class="magic-atmosphere" aria-hidden="true">
           <span></span><span></span><span></span><span></span><span></span><span></span>
           <span></span><span></span><span></span><span></span><span></span><span></span>
@@ -36,8 +36,8 @@
         <header class="archive-header">
           <div class="archive-mark" aria-hidden="true">Ⅸ</div>
           <div>
-            <p class="eyebrow">The Cabinet of Answering Books</p>
-            <h1 id="archiveTitle">会回应的藏书阁</h1>
+            <p class="eyebrow">The Magic Bookcase</p>
+            <h1 id="archiveTitle">魔法书柜</h1>
             <p class="archive-intro">八本书以封面朝向读者。轻触一本，它会展开成一整片会回应的羊皮纸。</p>
           </div>
           <div class="archive-header-actions">
@@ -95,7 +95,7 @@
                   <div class="hinge-leaf-face hinge-leaf-back"></div>
                 </div>
                 <div class="hinge-front-cover">
-                  <div class="hinge-cover-face hinge-cover-outer" id="openingHingeCover"></div>
+                  <div class="hinge-cover-face hinge-cover-outer" id="openingHingeCover"><strong id="openingHingeTitle"></strong></div>
                   <div class="hinge-cover-face hinge-cover-inner"></div>
                 </div>
               </div>
@@ -177,7 +177,7 @@
               </div>
               <div class="context-block connection-block">
                 <p class="section-label">连接状态</p>
-                <p id="modeCopy">未配置 API 时使用人物演示回复。</p>
+                <p id="modeCopy">未配置视觉模型时不能识别手写内容或判断书写语言。</p>
                 <button class="text-button full-width" id="openApiSettings" type="button">配置 API</button>
               </div>
             </section>
@@ -266,13 +266,38 @@
     <dialog class="settings-dialog" id="replySettingsDialog" aria-labelledby="replySettingsTitle">
       <form class="settings-form" id="replySettingsForm">
         <header class="dialog-header">
-          <div><p class="eyebrow">Reply Preference</p><h2 id="replySettingsTitle">调整回复方式</h2></div>
+          <div><p class="eyebrow">Persona & Memory</p><h2 id="replySettingsTitle">人物设定与记忆</h2></div>
           <button class="dialog-close" id="closeReplySettings" type="button" aria-label="关闭回复设置">×</button>
         </header>
+        <section class="original-persona-card" aria-labelledby="originalPersonaTitle">
+          <div class="original-persona-heading">
+            <p class="section-label" id="originalPersonaTitle">原本人设 · 只读</p>
+            <span>随时可恢复</span>
+          </div>
+          <dl class="original-persona-grid">
+            <div><dt>身份背景</dt><dd id="defaultPersonaIdentity"></dd></div>
+            <div><dt>性格与回答口吻</dt><dd id="defaultPersonaPersonality"></dd></div>
+            <div><dt>打开书时的第一句话</dt><dd id="defaultPersonaOpeningLine"></dd></div>
+          </dl>
+        </section>
         <div class="form-field">
-          <label for="personaInstruction">你希望他怎样回答</label>
+          <label for="personaIdentity">当前身份背景（可修改）</label>
+          <textarea id="personaIdentity" name="personaIdentity" maxlength="500" rows="4" placeholder="说明这个人物是谁、来自哪里、知道什么。"></textarea>
+        </div>
+        <div class="form-field">
+          <label for="personaPersonality">当前性格与回答口吻（可修改）</label>
+          <textarea id="personaPersonality" name="personaPersonality" maxlength="500" rows="4" placeholder="说明性格、思考方式和希望采用的表达方式。"></textarea>
+          <p class="field-hint">保存后会作为当前实际身份和口吻发送给模型；原始资料只用于查看和恢复默认文本。</p>
+        </div>
+        <div class="form-field">
+          <label for="personaOpeningLine">当前开场白（可选，可留空）</label>
+          <input id="personaOpeningLine" name="personaOpeningLine" maxlength="120" placeholder="例如：你终于还是打开了这本书。" />
+          <p class="field-hint">只用于打开书时显示，不会发送给模型；留空则不开场。</p>
+        </div>
+        <div class="form-field">
+          <label for="personaInstruction">额外回复偏好（可选）</label>
           <textarea id="personaInstruction" name="personaInstruction" maxlength="300" rows="5" placeholder="例如：先直接回答，少引用经典，用更生活化的语言。"></textarea>
-          <p class="field-hint">只调整当前人物的表达偏好；人物身份、史实边界和禁止编造规则不会改变。</p>
+          <p class="field-hint">用于临时强调回答方式，不替代上面的人物设定。</p>
         </div>
         <div class="form-field">
           <label for="personaMemory">这本书要长期记住什么</label>
@@ -281,7 +306,7 @@
         </div>
         <p class="form-message" id="replyFormMessage" aria-live="polite"></p>
         <footer class="dialog-actions">
-          <button class="secondary-button" id="clearReplySettings" type="button">恢复默认</button>
+          <button class="secondary-button" id="clearReplySettings" type="button">恢复原本人设与开场白</button>
           <button class="primary-button" type="submit">保存设置</button>
         </footer>
       </form>
@@ -299,11 +324,9 @@
         </div>
         <div class="form-field"><label for="customIdentity">他是谁</label><textarea id="customIdentity" maxlength="180" rows="3" required placeholder="说明时代、经历、身份和他知道哪些事情。"></textarea></div>
         <div class="form-field"><label for="customPersonality">人物性格与回答口吻</label><textarea id="customPersonality" maxlength="260" rows="4" required placeholder="例如：谨慎、机智、略带讽刺；先给结论，再用一个炼金术比喻解释。"></textarea></div>
+        <div class="form-field"><label for="customMemory">这本书一开始要记住什么</label><textarea id="customMemory" maxlength="600" rows="4" placeholder="例如：我叫小腾；我们正在一起完善魔法书柜；请记住我偏好简短直接的回答。"></textarea></div>
         <div class="form-field"><label for="customOpeningLine">打开时的第一句话</label><input id="customOpeningLine" maxlength="120" placeholder="例如：你终于还是打开了这本书。" /></div>
-        <div class="form-grid two-columns">
-          <div class="form-field"><label for="customBookTone">封面颜色</label><select id="customBookTone"><option value="midnight">午夜蓝</option><option value="obsidian">黑曜石</option><option value="wine">暗酒红</option><option value="jade">墨玉绿</option><option value="parchment">旧皮革</option><option value="silver">月银色</option></select></div>
-          <div class="form-field"><label for="customSigil">封面徽记</label><input id="customSigil" maxlength="2" placeholder="首字、符号或印记" /></div>
-        </div>
+        <p class="field-hint">新增书统一使用魔法书柜的封面模板；封面书名、人物设定、记忆和开场白由你编辑。</p>
         <p class="settings-notice">自定义书籍保存在当前浏览器，不会自动公开到其他人的书架。人物资料会经过长度限制，并且不能覆盖系统安全规则。</p>
         <p class="form-message" id="createBookMessage" aria-live="polite"></p>
         <footer class="dialog-actions">

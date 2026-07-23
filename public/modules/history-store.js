@@ -33,12 +33,13 @@ function keyFor(personaId) {
 
 function normalizeTurn(turn) {
   const transcript = clean(turn?.transcript, 900);
-  const reply = clean(turn?.reply, 300);
+  const reply = clean(turn?.reply);
   if (!transcript || !reply) return null;
   const at = Number.isNaN(Date.parse(turn?.at)) ? new Date().toISOString() : new Date(turn.at).toISOString();
   return { transcript, reply, at };
 }
 
 function clean(value, maxLength) {
-  return String(value || "").replace(/\s+/g, " ").trim().slice(0, maxLength);
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  return Number.isFinite(maxLength) ? text.slice(0, maxLength) : text;
 }

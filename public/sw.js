@@ -1,4 +1,4 @@
-const CACHE_NAME = "answering-library-local-app-v26";
+const CACHE_NAME = "answering-library-local-app-v34";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -9,6 +9,7 @@ const APP_SHELL = [
   "/modules/ink-engine.js",
   "/modules/history-store.js",
   "/modules/persona-memory-store.js",
+  "/modules/persona-profile-store.js",
   "/modules/custom-books.js",
   "/modules/book-gestures.js",
   "/modules/reply-presenter.js",
@@ -19,6 +20,7 @@ const APP_SHELL = [
   "/assets/app-icon-512.png",
   "/assets/magic/enchanted-archive.png",
   "/assets/magic/archive-with-mirror.webp",
+  "/assets/magic/archive-three-shelves.png",
   "/assets/magic/books/confucius.webp",
   "/assets/magic/books/socrates.webp",
   "/assets/magic/books/da-vinci.webp",
@@ -86,6 +88,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
+  if (new URL(request.url).pathname.startsWith("/api/")) return;
 
   event.respondWith(
     fetch(request)

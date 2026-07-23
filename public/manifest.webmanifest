@@ -1,6 +1,6 @@
 {
-  "name": "会回应的藏书阁",
-  "short_name": "回应藏书阁",
+  "name": "魔法书柜",
+  "short_name": "魔法书柜",
   "description": "打开一本会回应你的书，与思想者和魔法物件手写对话",
   "start_url": "/",
   "scope": "/",

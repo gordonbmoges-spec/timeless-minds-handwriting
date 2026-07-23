@@ -13,3 +13,14 @@ export async function requestPersonaReply(payload) {
   }
   return data;
 }
+
+export async function requestAiStatus() {
+  const response = await fetch("/api/status", {
+    method: "GET",
+    headers: { "Accept": "application/json" },
+    cache: "no-store"
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error("无法读取 AI 状态。");
+  return data;
+}

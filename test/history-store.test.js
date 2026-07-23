@@ -33,6 +33,13 @@ test("limits each persona archive to twenty valid turns", () => {
   assert.equal(turns.at(-1).transcript, "问题5");
 });
 
+test("preserves long model replies without the old three-hundred-character cutoff", () => {
+  const store = createHistoryStore(memoryStorage());
+  const longReply = "这是一段完整的长回答。".repeat(80);
+  store.append("tom-riddle", { transcript: "请详细回答", reply: longReply });
+  assert.equal(store.load("tom-riddle")[0].reply, longReply);
+});
+
 test("clears one persona and recovers from invalid storage", () => {
   const storage = memoryStorage({ "minds-archive-history-v1-confucius": "not-json" });
   const store = createHistoryStore(storage);

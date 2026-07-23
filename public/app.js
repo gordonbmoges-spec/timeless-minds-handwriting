@@ -1,10 +1,11 @@
 import { PERSONAS, findPersona } from "/data/personas.js";
 import { PERSONA_ASSETS, getPersonaAssets } from "/assets/personas/manifest.js";
-import { requestPersonaReply } from "/modules/ai-client.js";
+import { requestAiStatus, requestPersonaReply } from "/modules/ai-client.js";
 import { shouldCloseFromPinch, shouldOpenDrawerFromEdge } from "/modules/book-gestures.js";
 import { createHistoryStore } from "/modules/history-store.js";
 import { createCustomBookStore } from "/modules/custom-books.js";
 import { createPersonaMemoryStore } from "/modules/persona-memory-store.js";
+import { applyPersonaProfile, createPersonaProfileStore } from "/modules/persona-profile-store.js";
 import { InkEngine } from "/modules/ink-engine.js";
 import { ReplyPresenter } from "/modules/reply-presenter.js";
 import { navigateTo, personaPath, routeFromPath } from "/modules/router.js";
@@ -12,6 +13,16 @@ import { navigateTo, personaPath, routeFromPath } from "/modules/router.js";
 const API_SETTINGS_KEY = "ink-diary-api-settings-v1";
 const REPLY_PREFERENCE_PREFIX = "minds-archive-reply-preference-v1-";
 const MOTION_MODE_KEY = "minds-archive-motion-mode-v2";
+const SHELF_TRAVEL_MS = 1_650;
+const REFERENCE_OPEN_MS = 5_600;
+const REFERENCE_CLOSE_MS = 5_150;
+const MIRROR_CLOSE_MS = 520;
+const MIRROR_RETURN_MS = 1_450;
+const BOOK_HANDOFF_FADE_DELAY_MS = 320;
+const BOOK_HANDOFF_REMOVE_MS = 1_120;
+const BOOK_RETURN_TRAVEL_MS = 1_650;
+const BOOK_RETURN_CROSSFADE_MS = 180;
+const REPLY_FONT_LOAD_TIMEOUT_MS = 2_200;
 const IDLE_SEND_MS = 1_800;
 const HISTORICAL_PERSONA_IDS = new Set(["confucius", "socrates", "da-vinci", "shakespeare", "jung", "einstein"]);
 const GENERATED_COVER_IMAGES = Object.freeze({
@@ -27,10 +38,12 @@ const GENERATED_COVER_IMAGES = Object.freeze({
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const historyStore = createHistoryStore();
 const personaMemoryStore = createPersonaMemoryStore();
+const personaProfileStore = createPersonaProfileStore();
 const customBookStore = createCustomBookStore();
 let customBooks = customBookStore.load();
 let apiSessionConfig = null;
 let purgedLegacyApiSettings = false;
+const replyFontPromises = new Map();
 
 const providerDefaults = {
   aliyun: {
@@ -60,14 +73,15 @@ const elements = Object.fromEntries([
   "keywordList", "metricWidth", "metricInput", "modeCopy", "openApiSettings", "openHistory", "openReplySettings",
   "apiSettingsDialog", "apiSettingsForm", "closeApiSettings", "clearApiSettings",
   "toggleApiKey", "apiProvider", "apiKey", "apiBaseUrl", "apiModel", "modelHint",
-  "apiFormMessage", "replySettingsDialog", "replySettingsForm", "closeReplySettings",
-  "clearReplySettings", "personaInstruction", "personaMemory", "replyFormMessage", "historyDialog",
+  "apiFormMessage", "replySettingsDialog", "replySettingsForm", "replySettingsTitle", "closeReplySettings",
+  "clearReplySettings", "defaultPersonaIdentity", "defaultPersonaPersonality", "defaultPersonaOpeningLine", "personaIdentity",
+  "personaPersonality", "personaOpeningLine", "personaInstruction", "personaMemory", "replyFormMessage", "historyDialog",
   "closeHistory", "clearHistory", "historyList", "historyTitle", "createBookDialog",
   "createBookForm", "closeCreateBook", "customBookTitle", "customPersonaName", "customIdentity",
-  "customPersonality", "customOpeningLine", "customBookTone", "customSigil", "createBookMessage",
+  "customPersonality", "customMemory", "customOpeningLine", "createBookMessage",
   "bookDrawer", "toggleBookDrawer", "closeBookDrawer", "activeBookVolume", "activeBookTitle",
   "activeBookOwner", "pinchHint", "openingSequence", "openingFlipbook", "openingBookSigil", "openingBookTitle",
-  "openingBookLatin", "motionMode", "openingHingeRig", "openingHingeCover"
+  "openingBookLatin", "motionMode", "openingHingeRig", "openingHingeCover", "openingHingeTitle"
 ].map((id) => [id, document.getElementById(id)]));
 
 const state = {
@@ -90,6 +104,7 @@ const state = {
   bookPortalTimers: [],
   bookOrigin: null,
   returningBook: null,
+  aiStatus: { mode: "checking", model: "", source: "none" },
   motionMode: loadMotionMode()
 };
 
@@ -97,7 +112,7 @@ applyMotionMode(state.motionMode);
 renderArchive();
 bindGlobalEvents();
 handleRoute();
-updateConnectionCopy();
+void refreshConnectionStatus();
 registerLocalAppShell();
 
 function loadMotionMode() {
@@ -131,11 +146,12 @@ function renderArchive() {
     const button = document.createElement("button");
     const isMirror = persona.id === "magic-mirror";
     const generatedCoverImage = GENERATED_COVER_IMAGES[persona.id];
+    const hasFlatCover = Boolean(generatedCoverImage || persona.isCustom);
     const displayTitle = HISTORICAL_PERSONA_IDS.has(persona.id) ? persona.name : (persona.bookTitle || persona.name);
     button.className = isMirror
       ? "mirror-card archive-entry"
-      : generatedCoverImage
-        ? "archive-entry flat-cover-card"
+      : hasFlatCover
+        ? `archive-entry flat-cover-card${persona.isCustom ? " custom-cover-card" : ""}`
         : `book-card archive-entry book-${persona.bookTone || "archive"}`;
     button.type = "button";
     button.dataset.personaId = persona.id;
@@ -159,10 +175,18 @@ function renderArchive() {
 
     if (generatedCoverImage) {
       const bookImage = document.createElement("img");
-      bookImage.className = "flat-cover-image";
+      bookImage.className = "flat-cover-image flat-cover-visual";
       bookImage.src = generatedCoverImage;
       bookImage.alt = "";
       button.append(bookImage);
+    } else if (persona.isCustom) {
+      const customCover = document.createElement("span");
+      customCover.className = "flat-cover-image flat-cover-visual custom-cover-visual";
+      customCover.setAttribute("aria-hidden", "true");
+      const monogram = document.createElement("i");
+      monogram.textContent = persona.sigil || persona.name.slice(0, 1);
+      customCover.append(monogram);
+      button.append(customCover);
     }
 
     const number = document.createElement("span");
@@ -208,20 +232,71 @@ function renderArchive() {
   });
 
   const mirror = entries.find((entry) => entry.dataset.personaId === "magic-mirror");
-  const shelfEntries = entries.filter((entry) => entry !== mirror);
+  const shelfEntries = entries.filter((entry) => entry !== mirror && !findAvailablePersona(entry.dataset.personaId)?.isCustom);
+  const customEntries = entries.filter((entry) => findAvailablePersona(entry.dataset.personaId)?.isCustom);
   const upperShelf = document.createElement("div");
   upperShelf.className = "book-shelf-row shelf-upper";
   upperShelf.append(...shelfEntries.slice(0, 5));
   const lowerShelf = document.createElement("div");
   lowerShelf.className = "book-shelf-row shelf-lower";
   lowerShelf.append(...shelfEntries.slice(5));
-  elements.personaList.replaceChildren(...(mirror ? [mirror] : []), upperShelf, lowerShelf);
+  const customShelf = document.createElement("div");
+  customShelf.className = "book-shelf-row shelf-custom";
+  customShelf.setAttribute("aria-label", "自定义书籍书架");
+  const customSlots = customEntries.map((entry) => {
+    const persona = findAvailablePersona(entry.dataset.personaId);
+    const slot = document.createElement("div");
+    const deleteButton = document.createElement("button");
+    slot.className = "custom-book-slot";
+    deleteButton.className = "custom-book-delete";
+    deleteButton.type = "button";
+    deleteButton.textContent = "×";
+    deleteButton.setAttribute("aria-label", `删除《${persona.bookTitle}》`);
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      deleteCustomBook(persona);
+    });
+    slot.append(entry, deleteButton);
+    return slot;
+  });
+  customShelf.append(...customSlots);
+  elements.personaList.replaceChildren(...(mirror ? [mirror] : []), upperShelf, lowerShelf, customShelf);
 }
 
-function openBook(personaId, button) {
-  if (button.classList.contains("is-opening")) return;
+function deleteCustomBook(persona) {
+  if (!persona?.isCustom) return;
+  const approved = confirm(`确定删除《${persona.bookTitle}》吗？\n这本书的记忆和对话记录也会一起删除。`);
+  if (!approved) return;
+  customBooks = customBookStore.remove(persona.id);
+  personaMemoryStore.clear(persona.id);
+  personaProfileStore.clear(persona.id);
+  historyStore.clear(persona.id);
+  try {
+    localStorage.removeItem(`${REPLY_PREFERENCE_PREFIX}${persona.id}`);
+  } catch {
+    // Deletion still succeeds when private browsing blocks localStorage.
+  }
+  renderArchive();
+}
+
+async function openBook(personaId, button) {
+  if (button.classList.contains("is-opening") || button.classList.contains("is-opening-pending")) return;
   const persona = findAvailablePersona(personaId);
-  const hasBookPortal = !reducedMotion && Boolean(persona) && createBookTransitionPortal(button, persona);
+  button.classList.add("is-opening-pending");
+  button.setAttribute("aria-busy", "true");
+  const coverReady = warmOpeningCover(persona);
+  let hasBookPortal = false;
+  try {
+    const portalReady = !reducedMotion && Boolean(persona)
+      ? createBookTransitionPortal(button, persona)
+      : Promise.resolve(false);
+    [hasBookPortal] = await Promise.all([portalReady, coverReady]);
+  } catch {
+    clearBookTransitionPortal();
+  } finally {
+    button.classList.remove("is-opening-pending");
+    button.removeAttribute("aria-busy");
+  }
   const books = [...elements.personaList.querySelectorAll(".archive-entry")];
   const selectedIndex = Math.max(0, books.indexOf(button));
   elements.personaList.classList.add("is-selecting-book");
@@ -232,15 +307,44 @@ function openBook(personaId, button) {
   });
   button.classList.add("is-opening");
   elements.archiveView.classList.add("is-opening-book");
-  const delay = reducedMotion ? 0 : personaId === "magic-mirror" ? 1_260 : hasBookPortal ? 2_050 : 1_720;
+  const delay = reducedMotion ? 0 : personaId === "magic-mirror" ? 1_260 : hasBookPortal ? SHELF_TRAVEL_MS : 1_520;
   setTimeout(() => {
     navigateTo(personaPath(personaId));
   }, delay);
 }
 
-function createBookTransitionPortal(button, persona) {
-  const image = button.querySelector(".flat-cover-image");
-  if (!image) return false;
+async function warmOpeningCover(persona) {
+  const source = GENERATED_COVER_IMAGES[persona?.id];
+  if (!source) return;
+  const image = new Image();
+  image.decoding = "async";
+  image.src = source;
+  if (typeof image.decode === "function") {
+    await image.decode().catch(() => {});
+  }
+}
+
+function nextAnimationFrame() {
+  return new Promise((resolve) => requestAnimationFrame(resolve));
+}
+
+async function waitForPortalPaint(portal) {
+  const images = [...portal.querySelectorAll("img")];
+  await Promise.allSettled(images.map((image) => {
+    if (typeof image.decode === "function") return image.decode();
+    if (image.complete) return Promise.resolve();
+    return new Promise((resolve) => {
+      image.addEventListener("load", resolve, { once: true });
+      image.addEventListener("error", resolve, { once: true });
+    });
+  }));
+  await nextAnimationFrame();
+  await nextAnimationFrame();
+}
+
+async function createBookTransitionPortal(button, persona) {
+  const visual = button.querySelector(".flat-cover-visual");
+  if (!visual) return false;
   clearBookTransitionPortal();
 
   const rect = button.getBoundingClientRect();
@@ -255,7 +359,7 @@ function createBookTransitionPortal(button, persona) {
   const scale = targetWidth / rect.width;
 
   const portal = document.createElement("div");
-  portal.className = "book-transition-portal";
+  portal.className = "book-transition-portal is-priming";
   portal.dataset.motion = state.motionMode;
   portal.setAttribute("aria-hidden", "true");
   if (state.motionMode === "legacy") {
@@ -295,16 +399,21 @@ function createBookTransitionPortal(button, persona) {
     portal.style.setProperty("--portal-scale-late", String(startScale + (1 - startScale) * 0.7));
   }
 
-  const cover = document.createElement("img");
-  cover.src = image.currentSrc || image.src;
-  cover.alt = "";
+  const cover = visual.cloneNode(true);
+  cover.classList.add("portal-cover-visual");
+  cover.setAttribute("aria-hidden", "true");
   const title = document.createElement("strong");
   title.textContent = persona.name;
   portal.append(cover, title);
   document.body.append(portal);
   state.bookPortal = portal;
+  await waitForPortalPaint(portal);
+  if (state.bookPortal !== portal || !portal.isConnected || !button.isConnected) return false;
+  portal.classList.remove("is-priming");
+  portal.classList.add("is-ready");
+  await nextAnimationFrame();
   button.classList.add("is-portal-source");
-  requestAnimationFrame(() => portal.classList.add("is-travelling"));
+  portal.classList.add("is-travelling");
   return true;
 }
 
@@ -329,14 +438,14 @@ function bookPortalTarget(ratio) {
   };
 }
 
-function createBookReturnPortal(persona) {
+async function createBookReturnPortal(persona) {
   const source = GENERATED_COVER_IMAGES[persona?.id];
-  if (!source) return false;
+  if (!source && !persona?.isCustom) return false;
   clearBookTransitionPortal();
   const ratio = state.bookOrigin?.personaId === persona.id ? state.bookOrigin.ratio : 2 / 3;
   const rect = bookPortalTarget(ratio);
   const portal = document.createElement("div");
-  portal.className = "book-transition-portal book-return-portal";
+  portal.className = "book-transition-portal book-return-portal is-priming";
   portal.dataset.motion = state.motionMode;
   portal.setAttribute("aria-hidden", "true");
   portal.style.left = `${rect.left}px`;
@@ -344,12 +453,42 @@ function createBookReturnPortal(persona) {
   portal.style.width = `${rect.width}px`;
   portal.style.height = `${rect.height}px`;
 
-  const cover = document.createElement("img");
-  cover.src = source;
-  cover.alt = "";
+  let cover;
+  if (source) {
+    cover = document.createElement("img");
+    cover.src = source;
+    cover.alt = "";
+  } else {
+    cover = document.createElement("span");
+    cover.className = "flat-cover-image flat-cover-visual custom-cover-visual portal-cover-visual";
+    cover.setAttribute("aria-hidden", "true");
+    const monogram = document.createElement("i");
+    monogram.textContent = persona.sigil || persona.name.slice(0, 1);
+    cover.append(monogram);
+  }
   const title = document.createElement("strong");
-  title.textContent = persona.name;
+  title.textContent = persona.bookTitle || persona.name;
   portal.append(cover, title);
+  document.body.append(portal);
+  state.bookPortal = portal;
+  await waitForPortalPaint(portal);
+  if (state.bookPortal !== portal || !portal.isConnected) return false;
+  portal.classList.add("is-ready");
+  portal.classList.remove("is-priming");
+  await nextAnimationFrame();
+  await nextAnimationFrame();
+  state.returningBook = { personaId: persona.id };
+  return true;
+}
+
+function createMirrorReturnPortal(persona) {
+  if (persona?.id !== "magic-mirror" || !state.assets?.background) return false;
+  clearBookTransitionPortal();
+  const portal = document.createElement("div");
+  portal.className = "mirror-return-portal";
+  portal.setAttribute("aria-hidden", "true");
+  portal.style.backgroundImage = `url("${state.assets.background}")`;
+  portal.style.backgroundPosition = state.assets.backgroundFocus || "center";
   document.body.append(portal);
   state.bookPortal = portal;
   state.returningBook = { personaId: persona.id };
@@ -360,6 +499,16 @@ function finishBookReturnToShelf() {
   const returning = state.returningBook;
   const portal = state.bookPortal;
   if (!returning || !portal) return;
+  const isMirrorReturn = portal.classList.contains("mirror-return-portal");
+  if (isMirrorReturn) {
+    requestAnimationFrame(() => portal.classList.add("is-returning"));
+    state.bookPortalTimers.push(setTimeout(() => {
+      elements.archiveView.classList.remove("is-mirror-returning");
+      state.returningBook = null;
+      clearBookTransitionPortal();
+    }, MIRROR_RETURN_MS));
+    return;
+  }
   const target = elements.personaList.querySelector(`[data-persona-id="${returning.personaId}"]`);
   if (!target) {
     state.returningBook = null;
@@ -375,32 +524,44 @@ function finishBookReturnToShelf() {
   }
   target.classList.add("is-return-target");
   elements.personaList.classList.add("is-returning-book");
-  portal.style.setProperty("--return-x", `${targetRect.left - sourceRect.left}px`);
-  portal.style.setProperty("--return-y", `${targetRect.top - sourceRect.top}px`);
-  portal.style.setProperty("--return-scale", String(targetRect.width / sourceRect.width));
-  portal.style.setProperty("--return-label-end", `${Math.max(9, 12 / (targetRect.width / sourceRect.width))}px`);
+  const returnX = targetRect.left - sourceRect.left;
+  const returnY = targetRect.top - sourceRect.top;
+  const returnScale = targetRect.width / sourceRect.width;
+  portal.style.setProperty("--return-x", `${returnX}px`);
+  portal.style.setProperty("--return-y", `${returnY}px`);
+  portal.style.setProperty("--return-scale", String(returnScale));
+  portal.style.setProperty("--return-label-end", `${Math.max(9, 12 / returnScale)}px`);
   requestAnimationFrame(() => portal.classList.add("is-returning"));
-  state.bookPortalTimers.push(setTimeout(() => {
-    target.classList.remove("is-return-target");
+  state.bookPortalTimers.push(setTimeout(async () => {
+    if (state.bookPortal !== portal || state.returningBook !== returning) return;
     elements.personaList.classList.remove("is-returning-book");
-    state.returningBook = null;
-    state.bookOrigin = null;
-    clearBookTransitionPortal();
-  }, 1_520));
+    target.classList.remove("is-return-target");
+    await nextAnimationFrame();
+    await nextAnimationFrame();
+    if (state.bookPortal !== portal || state.returningBook !== returning) return;
+    portal.classList.add("is-settling");
+    state.bookPortalTimers.push(setTimeout(() => {
+      if (state.bookPortal !== portal || state.returningBook !== returning) return;
+      state.returningBook = null;
+      state.bookOrigin = null;
+      clearBookTransitionPortal();
+    }, BOOK_RETURN_CROSSFADE_MS));
+  }, BOOK_RETURN_TRAVEL_MS));
 }
 
 function handOffBookTransitionPortal() {
   if (!state.bookPortal) return;
   const portal = state.bookPortal;
-  state.bookPortalTimers.push(setTimeout(() => portal.classList.add("is-handing-off"), 140));
-  state.bookPortalTimers.push(setTimeout(clearBookTransitionPortal, 940));
+  state.bookPortalTimers.push(setTimeout(() => portal.classList.add("is-handing-off"), BOOK_HANDOFF_FADE_DELAY_MS));
+  state.bookPortalTimers.push(setTimeout(clearBookTransitionPortal, BOOK_HANDOFF_REMOVE_MS));
 }
 
 function resetArchiveSelection() {
   elements.archiveView.classList.remove("is-opening-book");
   elements.personaList.classList.remove("is-selecting-book");
   for (const book of elements.personaList.querySelectorAll(".archive-entry")) {
-    book.classList.remove("is-opening", "is-receding");
+    book.classList.remove("is-opening", "is-opening-pending", "is-receding");
+    book.removeAttribute("aria-busy");
     book.style.removeProperty("--recede-delay");
   }
 }
@@ -416,6 +577,9 @@ function bindGlobalEvents() {
   elements.sceneView.addEventListener("pointermove", trackBookGesture, true);
   elements.sceneView.addEventListener("pointerup", endBookGesture, true);
   elements.sceneView.addEventListener("pointercancel", endBookGesture, true);
+  for (const eventName of ["contextmenu", "selectstart", "dragstart"]) {
+    elements.writingSurface.addEventListener(eventName, preventNativeWritingSelection);
+  }
   addEventListener("keydown", (event) => {
     if (event.key !== "Escape" || elements.sceneView.hidden) return;
     if (elements.sceneView.classList.contains("drawer-open")) setBookDrawer(false);
@@ -477,6 +641,7 @@ function handleRoute() {
 
 function showArchive() {
   const isReturningBook = Boolean(state.returningBook && state.bookPortal);
+  const isReturningMirror = isReturningBook && state.returningBook?.personaId === "magic-mirror";
   teardownScene();
   if (!isReturningBook) clearBookTransitionPortal();
   resetArchiveSelection();
@@ -484,12 +649,15 @@ function showArchive() {
   state.assets = null;
   elements.sceneView.hidden = true;
   elements.archiveView.hidden = false;
-  elements.sceneView.classList.remove("is-revealed", "is-book-opening", "is-closing-book", "is-closing-to-shelf", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover", "is-handoff-opening");
+  elements.archiveView.classList.remove("is-entering");
+  requestAnimationFrame(() => elements.archiveView.classList.add("is-entering"));
+  elements.archiveView.classList.toggle("is-mirror-returning", isReturningMirror);
+  elements.sceneView.classList.remove("is-revealed", "is-book-opening", "is-closing-book", "is-closing-to-shelf", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover", "has-custom-cover", "is-handoff-opening");
   elements.bookDrawer.setAttribute("aria-hidden", "true");
   elements.bookDrawer.inert = true;
   elements.toggleBookDrawer.setAttribute("aria-expanded", "false");
   state.closing = false;
-  document.title = "会回应的藏书阁";
+  document.title = "魔法书柜";
   if (isReturningBook) requestAnimationFrame(finishBookReturnToShelf);
 }
 
@@ -501,21 +669,24 @@ function showScene(persona, assets) {
   state.history = historyStore.load(persona.id);
   elements.archiveView.hidden = true;
   elements.sceneView.hidden = false;
-  elements.sceneView.classList.remove("is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover", "is-handoff-opening");
+  elements.sceneView.classList.remove("is-book-opening", "is-closing-book", "is-pinching", "drawer-open", "scene-mirror", "has-generated-cover", "has-custom-cover", "is-handoff-opening");
   elements.sceneView.classList.toggle("scene-mirror", persona.id === "magic-mirror");
   elements.sceneView.classList.toggle("is-handoff-opening", hasBookHandoff);
   elements.sceneView.dataset.motion = state.motionMode;
   const generatedCoverImage = GENERATED_COVER_IMAGES[persona.id];
   elements.sceneView.classList.toggle("has-generated-cover", Boolean(generatedCoverImage));
+  elements.sceneView.classList.toggle("has-custom-cover", Boolean(persona.isCustom));
   elements.sceneView.style.setProperty("--opening-cover-image", generatedCoverImage ? `url("${generatedCoverImage}")` : "none");
   const openingRatio = state.bookOrigin?.personaId === persona.id ? state.bookOrigin.ratio : 2 / 3;
   elements.sceneView.style.setProperty("--opening-closed-width", `${bookPortalTarget(openingRatio).width}px`);
+  void resolveReplyFont(persona.openingLine, assets.replyFontSize || 36);
   elements.bookDrawer.inert = true;
   state.closing = false;
   const isMirror = persona.id === "magic-mirror";
-  elements.backToArchive.textContent = isMirror ? "离开魔镜，返回藏书阁" : "合上并放回书架";
+  elements.backToArchive.textContent = isMirror ? "离开魔镜，返回魔法书柜" : "合上并放回书架";
   elements.pinchHint.textContent = isMirror ? "双指向内收拢 · 离开魔镜" : "双指向内收拢 · 合上书籍";
-  document.title = `${persona.name} · 会回应的藏书阁`;
+  updateConnectionCopy();
+  document.title = `${persona.name} · 魔法书柜`;
 
   elements.sceneBackdrop.style.backgroundImage = assets.background ? `url("${assets.background}")` : assets.backgroundCss;
   elements.sceneBackdrop.style.backgroundPosition = assets.backgroundFocus;
@@ -546,6 +717,7 @@ function showScene(persona, assets) {
   elements.openingBookSigil.textContent = assets.sigil || persona.sigil || persona.name.slice(0, 1);
   elements.openingBookTitle.textContent = persona.name;
   elements.openingBookLatin.textContent = persona.latinName;
+  elements.openingHingeTitle.textContent = persona.bookTitle || persona.name;
   elements.paperObject.classList.remove("book-unfolding");
   elements.paperObject.dataset.bookTitle = persona.name;
   const coverColor = assets.coverColor || bookCoverColor(persona.bookTone);
@@ -582,7 +754,7 @@ function showScene(persona, assets) {
       elements.sceneView.classList.remove("is-book-opening", "is-handoff-opening");
       state.openingTimer = null;
       showOpeningLine();
-    }, reducedMotion ? 0 : state.motionMode === "hinge" ? 5_850 : 4_350);
+    }, reducedMotion ? 0 : state.motionMode === "hinge" ? REFERENCE_OPEN_MS : 4_350);
   });
   requestAnimationFrame(setupSceneEngines);
   setStatus("等待书写");
@@ -591,6 +763,10 @@ function showScene(persona, assets) {
 
 function toggleBookDrawer() {
   setBookDrawer(!elements.sceneView.classList.contains("drawer-open"));
+}
+
+function preventNativeWritingSelection(event) {
+  event.preventDefault();
 }
 
 function setBookDrawer(open) {
@@ -603,7 +779,7 @@ function setBookDrawer(open) {
 }
 
 function trackBookGesture(event) {
-  if (event.pointerType !== "touch" || elements.sceneView.hidden || state.closing) return;
+  if (!["touch", "mouse"].includes(event.pointerType) || elements.sceneView.hidden || state.closing) return;
   const point = { id: event.pointerId, x: event.clientX, y: event.clientY };
   if (event.type === "pointerdown") {
     state.touchPoints.set(event.pointerId, point);
@@ -633,7 +809,7 @@ function trackBookGesture(event) {
 }
 
 function endBookGesture(event) {
-  if (event.pointerType !== "touch") return;
+  if (!["touch", "mouse"].includes(event.pointerType)) return;
   state.touchPoints.delete(event.pointerId);
   if (state.touchPoints.size < 2) {
     state.pinchStart = null;
@@ -653,22 +829,33 @@ function closeBookToShelf() {
   elements.sceneView.classList.add("is-closing-book");
   const canReturnToShelf = !reducedMotion
     && state.persona?.id !== "magic-mirror"
-    && Boolean(GENERATED_COVER_IMAGES[state.persona?.id]);
+    && Boolean(GENERATED_COVER_IMAGES[state.persona?.id] || state.persona?.isCustom);
   elements.sceneView.classList.toggle("is-closing-to-shelf", canReturnToShelf);
   elements.sceneView.classList.remove("is-book-opening");
   elements.sceneView.classList.remove("is-pinching");
+  const isMirror = state.persona?.id === "magic-mirror";
+  if (isMirror && !reducedMotion) {
+    setTimeout(() => {
+      if (!state.persona || !createMirrorReturnPortal(state.persona)) {
+        navigateTo("/");
+        return;
+      }
+      navigateTo("/");
+    }, MIRROR_CLOSE_MS);
+    return;
+  }
   if (!reducedMotion && state.pageFlip) {
     state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("bottom"), 100));
     state.flipTimers.push(setTimeout(() => state.pageFlip?.flipPrev("top"), 850));
   }
   if (canReturnToShelf) {
-    state.flipTimers.push(setTimeout(() => {
-      if (!state.persona || !createBookReturnPortal(state.persona)) {
+    state.flipTimers.push(setTimeout(async () => {
+      if (!state.persona || !await createBookReturnPortal(state.persona)) {
         navigateTo("/");
         return;
       }
       navigateTo("/");
-    }, 2_180));
+    }, REFERENCE_CLOSE_MS));
     return;
   }
   setTimeout(() => navigateTo("/"), reducedMotion ? 0 : 2_850);
@@ -788,13 +975,12 @@ function showOpeningLine(attempt = 0) {
     if (attempt < 3) setTimeout(() => showOpeningLine(attempt + 1), 50);
     return;
   }
-  state.reply.show(state.persona.openingLine, {
+  showReplyWithLoadedFont(state.persona.openingLine, {
     direction: state.assets.writingDirection,
     align: "center",
     topRatio: state.assets.replyTopRatio || 0.08,
     maxWidthRatio: state.assets.replyMaxWidthRatio || 0.82,
     color: state.assets.replyInk,
-    fontFamily: replyFontFor(state.persona.openingLine),
     fontSize: state.assets.replyFontSize || 36,
     pace: 1.18
   });
@@ -856,12 +1042,15 @@ async function commitPage() {
       history: state.history.slice(0, 6).reverse(),
       personaInstruction: readReplyPreference(state.persona.id),
       personaMemory: readPersonaMemory(state.persona.id),
+      personaProfile: state.persona.isCustom ? null : {
+        identity: state.persona.identity || state.persona.name || "",
+        personality: state.persona.personality || ""
+      },
       customPersona: state.persona.isCustom ? {
         name: state.persona.name,
         bookTitle: state.persona.bookTitle,
         identity: state.persona.identity,
-        personality: state.persona.personality,
-        openingLine: state.persona.openingLine
+        personality: state.persona.personality
       } : null,
       apiConfig: readApiSettings()
     });
@@ -874,21 +1063,25 @@ async function commitPage() {
       });
       updateHistoryCount();
     }
-    elements.modeCopy.textContent = data.mode === "demo"
-      ? `演示模式 · ${state.persona.name}人物内核已启用；演示句不会存入历史档案。`
-      : `AI 模式 · ${state.persona.name}已读取纸面并回应。`;
-    setStatus(data.status === "needs_clarification" ? "请再写一次" : "正在回信", "busy");
-    await state.reply.show(data.reply || "", {
+    updateConnectionCopy(data.diagnostics || { mode: data.mode });
+    setStatus(
+      data.status === "demo_unavailable"
+        ? "需要配置 AI"
+        : data.status === "needs_clarification"
+          ? "请再写一次"
+          : "正在回信",
+      data.status === "demo_unavailable" ? "error" : "busy"
+    );
+    await showReplyWithLoadedFont(data.reply || "", {
       direction: state.assets.writingDirection,
       align: "center",
       topRatio: state.assets.replyTopRatio || 0.08,
       maxWidthRatio: state.assets.replyMaxWidthRatio || 0.82,
       color: state.assets.replyInk,
-      fontFamily: replyFontFor(data.reply),
       fontSize: state.assets.replyFontSize || 36,
       pace: data.style?.pace || 1
     });
-    setStatus("等待书写");
+    if (data.status !== "demo_unavailable") setStatus("等待书写");
   } catch (error) {
     console.error("Reply request failed", { code: error.code, status: error.status });
     setStatus("接口错误 · 可重试", "error");
@@ -970,6 +1163,7 @@ function saveApiSettings(event) {
     return;
   }
   apiSessionConfig = config;
+  state.aiStatus = { mode: "ai", model: config.model, source: "session" };
   updateConnectionCopy();
   showApiFormMessage("配置已启用，刷新或关闭页面后会自动清除。", "success");
   setTimeout(() => elements.apiSettingsDialog.close(), reducedMotion ? 0 : 500);
@@ -981,7 +1175,7 @@ function clearSavedApiSettings() {
   elements.apiKey.value = "";
   elements.apiProvider.value = "aliyun";
   applyProviderDefaults();
-  updateConnectionCopy();
+  void refreshConnectionStatus();
   showApiFormMessage("页面配置已清除，将使用服务器配置或演示模式。", "success");
 }
 
@@ -993,11 +1187,66 @@ function readApiSettings() {
   return apiSessionConfig;
 }
 
-function updateConnectionCopy() {
+function updateConnectionCopy(diagnostics = null) {
+  if (diagnostics) {
+    state.aiStatus = {
+      mode: diagnostics.mode === "ai" ? "ai" : "demo",
+      model: String(diagnostics.model || ""),
+      source: String(diagnostics.source || "none")
+    };
+  }
   const config = readApiSettings();
-  elements.modeCopy.textContent = config
-    ? `已配置 ${providerName(config.provider)} · ${config.model}。Key 仅保存在页面内存。`
-    : "尚未在浏览器配置 API。服务器有 Key 时自动使用，否则进入演示模式。";
+  const activeStatus = config
+    ? { mode: "ai", model: config.model, source: "session" }
+    : state.aiStatus;
+  const activeProfile = state.persona && !state.persona.isCustom ? {
+    identity: state.persona.identity || state.persona.name || "",
+    personality: state.persona.personality || ""
+  } : null;
+  const profileApplied = diagnostics ? Boolean(diagnostics.profileApplied) : Boolean(activeProfile);
+  const appliedFields = diagnostics?.profileFieldsApplied || {
+    identity: Boolean(activeProfile?.identity),
+    personality: Boolean(activeProfile?.personality),
+    openingLine: false
+  };
+  const appliedFieldCopy = [
+    appliedFields.identity ? "身份" : "",
+    appliedFields.personality ? "口吻" : "",
+    appliedFields.openingLine ? "开场白" : ""
+  ].filter(Boolean).join("、");
+  const memoryApplied = diagnostics ? Boolean(diagnostics.memoryApplied) : Boolean(state.persona && readPersonaMemory(state.persona.id));
+  const personaCopy = (aiActive) => state.persona
+    ? ` · 当前设定：${profileApplied ? (aiActive ? `已发送（${appliedFieldCopy || "人物资料"}）` : "修改版已保存，等待真实 AI") : "原始设定"} · 长期记忆：${memoryApplied ? (aiActive ? "已发送" : "已保存，等待真实 AI") : "空"}`
+    : "";
+
+  if (activeStatus.mode === "ai") {
+    const sourceCopy = activeStatus.source === "session" ? "页面 AI" : "服务器 AI";
+    elements.modeCopy.textContent = `${sourceCopy} · ${activeStatus.model || "视觉模型"}${personaCopy(true)}`;
+    return;
+  }
+  if (activeStatus.mode === "demo") {
+    elements.modeCopy.textContent = `演示模式 · 不会识别手写，也不会调用人物设定和记忆${personaCopy(false)}`;
+    return;
+  }
+  elements.modeCopy.textContent = `正在检查 AI 连接${personaCopy(false)}`;
+}
+
+async function refreshConnectionStatus() {
+  if (readApiSettings()) {
+    updateConnectionCopy();
+    return;
+  }
+  try {
+    const status = await requestAiStatus();
+    state.aiStatus = {
+      mode: status.mode === "ai" ? "ai" : "demo",
+      model: String(status.model || ""),
+      source: String(status.source || "none")
+    };
+  } catch {
+    state.aiStatus = { mode: "demo", model: "", source: "none" };
+  }
+  updateConnectionCopy();
 }
 
 function providerName(provider) {
@@ -1018,21 +1267,45 @@ function showApiFormMessage(message, type) {
 
 function showReplySettings() {
   if (!state.persona) return;
+  const original = findOriginalPersona(state.persona.id);
+  const savedProfile = personaProfileStore.load(state.persona.id);
+  const originalIdentity = original?.identity || "这本书尚未记录原始身份背景。";
+  const originalPersonality = original?.personality || "这本书尚未记录原始性格与回答口吻。";
+  const originalOpeningLine = original?.openingLine || "这本书尚未记录原始开场白。";
+  elements.defaultPersonaIdentity.textContent = originalIdentity;
+  elements.defaultPersonaPersonality.textContent = originalPersonality;
+  elements.defaultPersonaOpeningLine.textContent = originalOpeningLine;
+  elements.personaIdentity.value = savedProfile?.identity || original?.identity || "";
+  elements.personaPersonality.value = savedProfile?.personality || original?.personality || "";
+  elements.personaOpeningLine.value = savedProfile && Object.prototype.hasOwnProperty.call(savedProfile, "openingLine")
+    ? savedProfile.openingLine
+    : (original?.openingLine || "");
   elements.personaInstruction.value = readReplyPreference(state.persona.id);
   elements.personaMemory.value = readPersonaMemory(state.persona.id);
-  elements.replySettingsTitle.textContent = `${state.persona.name} · 回复方式`;
+  elements.replySettingsTitle.textContent = `${state.persona.name} · 人物设定与记忆`;
   elements.replyFormMessage.textContent = "";
   elements.replyFormMessage.className = "form-message";
   elements.replySettingsDialog.showModal();
-  elements.personaInstruction.focus();
+  elements.personaIdentity.focus();
 }
 
 function saveReplyPreference(event) {
   event.preventDefault();
   if (!state.persona) return;
+  const original = findOriginalPersona(state.persona.id);
+  const identity = elements.personaIdentity.value.replace(/\s+/g, " ").trim().slice(0, 500);
+  const personality = elements.personaPersonality.value.replace(/\s+/g, " ").trim().slice(0, 500);
+  const openingLine = elements.personaOpeningLine.value.replace(/\s+/g, " ").trim().slice(0, 120);
   const value = elements.personaInstruction.value.replace(/\s+/g, " ").trim().slice(0, 300);
   const memory = elements.personaMemory.value.replace(/\s+/g, " ").trim().slice(0, 600);
   try {
+    const profileIsDefault = identity === (original?.identity || "")
+      && personality === (original?.personality || "")
+      && openingLine === (original?.openingLine || "");
+    const profileSaved = profileIsDefault
+      ? personaProfileStore.clear(state.persona.id)
+      : personaProfileStore.save(state.persona.id, { identity, personality, openingLine });
+    if (!profileSaved) throw new Error("profile_not_saved");
     if (value) localStorage.setItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`, value);
     else localStorage.removeItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`);
     if (!personaMemoryStore.save(state.persona.id, memory)) throw new Error("memory_not_saved");
@@ -1040,17 +1313,29 @@ function saveReplyPreference(event) {
     showReplyFormMessage("浏览器不允许保存这项设置。", "error");
     return;
   }
+  elements.personaIdentity.value = identity;
+  elements.personaPersonality.value = personality;
+  elements.personaOpeningLine.value = openingLine;
   elements.personaInstruction.value = value;
   elements.personaMemory.value = memory;
-  showReplyFormMessage(value || memory ? "回复偏好与长期记忆已保存。" : "已恢复人物默认回复方式并清空长期记忆。", "success");
+  state.persona = findAvailablePersona(state.persona.id);
+  updateConnectionCopy();
+  showReplyFormMessage("人物设定、回复偏好与长期记忆已保存。", "success");
   setTimeout(() => elements.replySettingsDialog.close(), reducedMotion ? 0 : 500);
 }
 
 function clearSavedReplyPreference() {
   if (!state.persona) return;
+  const original = findOriginalPersona(state.persona.id);
   try { localStorage.removeItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`); } catch {}
+  personaProfileStore.clear(state.persona.id);
+  elements.personaIdentity.value = original?.identity || "";
+  elements.personaPersonality.value = original?.personality || "";
+  elements.personaOpeningLine.value = original?.openingLine || "";
   elements.personaInstruction.value = "";
-  showReplyFormMessage("已恢复人物默认回复方式；长期记忆仍然保留。", "success");
+  state.persona = findAvailablePersona(state.persona.id);
+  updateConnectionCopy();
+  showReplyFormMessage("已恢复原始身份、性格、开场白与默认回复方式；长期记忆仍然保留。", "success");
 }
 
 function readReplyPreference(personaId) {
@@ -1129,13 +1414,53 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function replyFontFor(text) {
+function replyFontKind(text) {
   const value = String(text || "");
   const latin = (value.match(/[A-Za-z]/g) || []).length;
   const cjk = (value.match(/[\u3400-\u9fff]/g) || []).length;
-  return latin > cjk
-    ? '"IM FELL English", "Dancing Script", Georgia, serif'
-    : '"ZCOOL XiaoWei", "Kaiti SC", "STKaiti", "KaiTi", serif';
+  return latin > cjk ? "latin" : "cjk";
+}
+
+async function loadReplyFont(family, fontSize, sample) {
+  if (!document.fonts?.load || !document.fonts?.check) return false;
+  const descriptor = `${fontSize}px "${family}"`;
+  if (document.fonts.check(descriptor, sample)) return true;
+  try {
+    await Promise.race([
+      document.fonts.load(descriptor, sample),
+      wait(REPLY_FONT_LOAD_TIMEOUT_MS)
+    ]);
+  } catch {
+    return false;
+  }
+  return document.fonts.check(descriptor, sample);
+}
+
+function resolveReplyFont(text, fontSize) {
+  const kind = replyFontKind(text);
+  const cached = replyFontPromises.get(kind);
+  if (cached) return cached;
+  const sample = kind === "latin" ? "The quick brown fox answers." : "魔法书柜";
+  const promise = (async () => {
+    if (kind === "latin") {
+      if (await loadReplyFont("Dancing Script", fontSize, sample)) return '"Dancing Script", cursive';
+      if (await loadReplyFont("IM FELL English", fontSize, sample)) return '"IM FELL English", Georgia, serif';
+      return "Georgia, serif";
+    }
+    if (await loadReplyFont("ZCOOL XiaoWei", fontSize, sample)) return '"ZCOOL XiaoWei", "Kaiti SC", serif';
+    return '"Kaiti SC", "STKaiti", "KaiTi", serif';
+  })();
+  replyFontPromises.set(kind, promise);
+  return promise;
+}
+
+async function showReplyWithLoadedFont(text, options) {
+  const presenter = state.reply;
+  const personaId = state.persona?.id;
+  const fontSize = options.fontSize || 36;
+  const fontFamily = await resolveReplyFont(text, fontSize);
+  if (!presenter || presenter !== state.reply || personaId !== state.persona?.id) return;
+  return presenter.show(text, { ...options, fontFamily });
 }
 
 function bookCoverColor(tone) {
@@ -1147,10 +1472,15 @@ function bookCoverColor(tone) {
 }
 
 function allPersonas() {
-  return [...PERSONAS, ...customBooks];
+  return [...PERSONAS, ...customBooks].map((persona) => applyPersonaProfile(persona, personaProfileStore.load(persona.id)));
 }
 
 function findAvailablePersona(id) {
+  const persona = findOriginalPersona(id);
+  return persona ? applyPersonaProfile(persona, personaProfileStore.load(persona.id)) : null;
+}
+
+function findOriginalPersona(id) {
   return findPersona(id) || customBooks.find((book) => book.id === id) || null;
 }
 
@@ -1198,9 +1528,10 @@ function saveCustomBook(event) {
       identity: elements.customIdentity.value,
       personality: elements.customPersonality.value,
       openingLine: elements.customOpeningLine.value,
-      bookTone: elements.customBookTone.value,
-      sigil: elements.customSigil.value
+      bookTone: "obsidian",
+      sigil: elements.customPersonaName.value.trim().slice(0, 1)
     });
+    personaMemoryStore.save(book.id, elements.customMemory.value);
     customBooks = customBookStore.load();
     renderArchive();
     elements.createBookMessage.textContent = `《${book.bookTitle}》已经放上书架。`;

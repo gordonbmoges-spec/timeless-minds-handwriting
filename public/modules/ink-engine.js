@@ -67,6 +67,7 @@ export class InkEngine {
     this.handlePointerDown = this.handlePointerDown.bind(this);
     this.handlePointerMove = this.handlePointerMove.bind(this);
     this.handlePointerUp = this.handlePointerUp.bind(this);
+    this.preventNativeInteraction = this.preventNativeInteraction.bind(this);
     this.flushFrame = this.flushFrame.bind(this);
 
     canvas.addEventListener("pointerdown", this.handlePointerDown);
@@ -75,6 +76,9 @@ export class InkEngine {
     canvas.addEventListener(this.moveEventName, this.handlePointerMove);
     canvas.addEventListener("pointerup", this.handlePointerUp);
     canvas.addEventListener("pointercancel", this.handlePointerUp);
+    canvas.addEventListener("contextmenu", this.preventNativeInteraction);
+    canvas.addEventListener("selectstart", this.preventNativeInteraction);
+    canvas.addEventListener("dragstart", this.preventNativeInteraction);
   }
 
   destroy() {
@@ -83,6 +87,9 @@ export class InkEngine {
     this.canvas.removeEventListener(this.moveEventName, this.handlePointerMove);
     this.canvas.removeEventListener("pointerup", this.handlePointerUp);
     this.canvas.removeEventListener("pointercancel", this.handlePointerUp);
+    this.canvas.removeEventListener("contextmenu", this.preventNativeInteraction);
+    this.canvas.removeEventListener("selectstart", this.preventNativeInteraction);
+    this.canvas.removeEventListener("dragstart", this.preventNativeInteraction);
   }
 
   resize(width, height) {
@@ -120,6 +127,7 @@ export class InkEngine {
   }
 
   handlePointerDown(event) {
+    this.preventNativeInteraction(event);
     const now = performanceNow();
     const penIsActive = this.activePointerType === "pen" || now < this.penActiveUntil;
     if (!this.enabled || !this.canStart() || shouldIgnorePointer(event, penIsActive)) return;
@@ -136,12 +144,14 @@ export class InkEngine {
   }
 
   handlePointerMove(event) {
+    this.preventNativeInteraction(event);
     if (event.pointerId !== this.activePointerId || !this.currentStroke) return;
     if (event.pointerType === "pen") this.penActiveUntil = performanceNow() + 700;
     this.enqueue(event);
   }
 
   handlePointerUp(event) {
+    this.preventNativeInteraction(event);
     if (event.pointerId !== this.activePointerId || !this.currentStroke) return;
     this.enqueue(event);
     this.flushFrame();
@@ -163,6 +173,10 @@ export class InkEngine {
     const samples = collectPointerSamples(event, rect);
     this.pendingPoints.push(...samples);
     this.scheduleFrame();
+  }
+
+  preventNativeInteraction(event) {
+    if (event?.cancelable) event.preventDefault();
   }
 
   scheduleFrame() {
