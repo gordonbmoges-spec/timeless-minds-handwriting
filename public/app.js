@@ -1,6 +1,6 @@
 import { PERSONAS, findPersona } from "/data/personas.js";
 import { PERSONA_ASSETS, getPersonaAssets } from "/assets/personas/manifest.js";
-import { requestPersonaReply } from "/modules/ai-client.js";
+import { requestAiStatus, requestPersonaReply } from "/modules/ai-client.js";
 import { shouldCloseFromPinch, shouldOpenDrawerFromEdge } from "/modules/book-gestures.js";
 import { createHistoryStore } from "/modules/history-store.js";
 import { createCustomBookStore } from "/modules/custom-books.js";
@@ -104,6 +104,7 @@ const state = {
   bookPortalTimers: [],
   bookOrigin: null,
   returningBook: null,
+  aiStatus: { mode: "checking", model: "", source: "none" },
   motionMode: loadMotionMode()
 };
 
@@ -111,7 +112,7 @@ applyMotionMode(state.motionMode);
 renderArchive();
 bindGlobalEvents();
 handleRoute();
-updateConnectionCopy();
+void refreshConnectionStatus();
 registerLocalAppShell();
 
 function loadMotionMode() {
@@ -684,6 +685,7 @@ function showScene(persona, assets) {
   const isMirror = persona.id === "magic-mirror";
   elements.backToArchive.textContent = isMirror ? "离开魔镜，返回魔法书柜" : "合上并放回书架";
   elements.pinchHint.textContent = isMirror ? "双指向内收拢 · 离开魔镜" : "双指向内收拢 · 合上书籍";
+  updateConnectionCopy();
   document.title = `${persona.name} · 魔法书柜`;
 
   elements.sceneBackdrop.style.backgroundImage = assets.background ? `url("${assets.background}")` : assets.backgroundCss;
@@ -1059,9 +1061,7 @@ async function commitPage() {
       });
       updateHistoryCount();
     }
-    elements.modeCopy.textContent = data.mode === "demo"
-      ? "演示模式无法读取手写语言；请配置视觉模型后再试。"
-      : `AI 模式 · ${state.persona.name}已读取纸面并回应。`;
+    updateConnectionCopy(data.diagnostics || { mode: data.mode });
     setStatus(
       data.status === "demo_unavailable"
         ? "需要配置 AI"
@@ -1161,6 +1161,7 @@ function saveApiSettings(event) {
     return;
   }
   apiSessionConfig = config;
+  state.aiStatus = { mode: "ai", model: config.model, source: "session" };
   updateConnectionCopy();
   showApiFormMessage("配置已启用，刷新或关闭页面后会自动清除。", "success");
   setTimeout(() => elements.apiSettingsDialog.close(), reducedMotion ? 0 : 500);
@@ -1172,7 +1173,7 @@ function clearSavedApiSettings() {
   elements.apiKey.value = "";
   elements.apiProvider.value = "aliyun";
   applyProviderDefaults();
-  updateConnectionCopy();
+  void refreshConnectionStatus();
   showApiFormMessage("页面配置已清除，将使用服务器配置或演示模式。", "success");
 }
 
@@ -1184,11 +1185,52 @@ function readApiSettings() {
   return apiSessionConfig;
 }
 
-function updateConnectionCopy() {
+function updateConnectionCopy(diagnostics = null) {
+  if (diagnostics) {
+    state.aiStatus = {
+      mode: diagnostics.mode === "ai" ? "ai" : "demo",
+      model: String(diagnostics.model || ""),
+      source: String(diagnostics.source || "none")
+    };
+  }
   const config = readApiSettings();
-  elements.modeCopy.textContent = config
-    ? `已配置 ${providerName(config.provider)} · ${config.model}。Key 仅保存在页面内存。`
-    : "尚未在浏览器配置 API。服务器有 Key 时自动使用，否则进入演示模式。";
+  const activeStatus = config
+    ? { mode: "ai", model: config.model, source: "session" }
+    : state.aiStatus;
+  const profileApplied = Boolean(state.persona && personaProfileStore.load(state.persona.id));
+  const memoryApplied = Boolean(state.persona && readPersonaMemory(state.persona.id));
+  const personaCopy = (aiActive) => state.persona
+    ? ` · 当前人设：${profileApplied ? (aiActive ? "修改版优先生效" : "修改版已保存，等待真实 AI") : "原始设定"} · 长期记忆：${memoryApplied ? (aiActive ? "已载入" : "已保存，等待真实 AI") : "空"}`
+    : "";
+
+  if (activeStatus.mode === "ai") {
+    const sourceCopy = activeStatus.source === "session" ? "页面 AI" : "服务器 AI";
+    elements.modeCopy.textContent = `${sourceCopy} · ${activeStatus.model || "视觉模型"}${personaCopy(true)}`;
+    return;
+  }
+  if (activeStatus.mode === "demo") {
+    elements.modeCopy.textContent = `演示模式 · 不会识别手写，也不会调用人物设定和记忆${personaCopy(false)}`;
+    return;
+  }
+  elements.modeCopy.textContent = `正在检查 AI 连接${personaCopy(false)}`;
+}
+
+async function refreshConnectionStatus() {
+  if (readApiSettings()) {
+    updateConnectionCopy();
+    return;
+  }
+  try {
+    const status = await requestAiStatus();
+    state.aiStatus = {
+      mode: status.mode === "ai" ? "ai" : "demo",
+      model: String(status.model || ""),
+      source: String(status.source || "none")
+    };
+  } catch {
+    state.aiStatus = { mode: "demo", model: "", source: "none" };
+  }
+  updateConnectionCopy();
 }
 
 function providerName(provider) {
@@ -1252,6 +1294,7 @@ function saveReplyPreference(event) {
   elements.personaInstruction.value = value;
   elements.personaMemory.value = memory;
   state.persona = findAvailablePersona(state.persona.id);
+  updateConnectionCopy();
   showReplyFormMessage("人物设定、回复偏好与长期记忆已保存。", "success");
   setTimeout(() => elements.replySettingsDialog.close(), reducedMotion ? 0 : 500);
 }
@@ -1265,6 +1308,7 @@ function clearSavedReplyPreference() {
   elements.personaPersonality.value = original?.personality || "";
   elements.personaInstruction.value = "";
   state.persona = findAvailablePersona(state.persona.id);
+  updateConnectionCopy();
   showReplyFormMessage("已恢复原本人设与默认回复方式；长期记忆仍然保留。", "success");
 }
 

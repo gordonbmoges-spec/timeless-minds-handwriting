@@ -268,3 +268,17 @@ test("keeps iPad opening and closing transitions on one stable trajectory", asyn
   assert.doesNotMatch(stableReturn, /calc\(|filter:/);
   assert.doesNotMatch(stableLeaves, /filter:/);
 });
+
+test("shows whether real AI, an edited persona, and memory are actually active", async () => {
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const client = await readFile(new URL("../public/modules/ai-client.js", import.meta.url), "utf8");
+  const sw = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
+
+  assert.match(client, /fetch\("\/api\/status"/);
+  assert.match(app, /当前人设：.*修改版优先生效/s);
+  assert.match(app, /修改版已保存，等待真实 AI/);
+  assert.match(app, /长期记忆：.*已载入/s);
+  assert.match(app, /演示模式 · 不会识别手写，也不会调用人物设定和记忆/);
+  assert.match(sw, /answering-library-local-app-v31/);
+  assert.match(sw, /pathname\.startsWith\("\/api\/"\)/);
+});

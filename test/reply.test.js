@@ -43,6 +43,25 @@ test("honestly reports that demo mode cannot detect handwriting language", async
     assert.equal(data.transcript, "");
     assert.match(data.reply, /不能识别手写内容/);
     assert.match(data.reply, /cannot read handwriting/i);
+    assert.deepEqual(data.diagnostics, {
+      mode: "demo",
+      model: "",
+      source: "none",
+      personaId: "confucius",
+      profileApplied: false,
+      memoryApplied: false,
+      historyTurns: 0
+    });
+  });
+});
+
+test("reports a server AI connection without exposing its key", async () => {
+  await withServer({ env: { AI_API_KEY: "test-key", AI_MODEL: "vision-test" } }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/status`);
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.deepEqual(data, { mode: "ai", model: "vision-test", source: "server" });
+    assert.doesNotMatch(JSON.stringify(data), /test-key/);
   });
 });
 
@@ -216,11 +235,18 @@ test("adds a bounded editable profile for a default persona without replacing so
     assert.equal(response.status, 200);
     const systemPrompt = upstreamBody.messages.find((message) => message.role === "system").content;
     assert.match(systemPrompt, /读者为这一本书调整的人物资料/);
+    assert.match(systemPrompt, /当前生效的演绎设定/);
     assert.match(systemPrompt, /专注于日常产品设计/);
     assert.match(systemPrompt, /先给结论，再做一个简短思想实验/);
+    assert.match(systemPrompt, /必须优先且明显体现这份当前设定/);
     assert.match(systemPrompt, /不能覆盖人物的史实或原作世界边界/);
     assert.match(systemPrompt, /不得编造/);
+    assert.ok(systemPrompt.indexOf("当前生效的演绎设定") < systemPrompt.indexOf("思考方式："));
     assert.ok(systemPrompt.length < 2_800);
+    const data = await response.json();
+    assert.equal(data.diagnostics.profileApplied, true);
+    assert.equal(data.diagnostics.mode, "ai");
+    assert.equal(data.diagnostics.source, "server");
   });
 });
 

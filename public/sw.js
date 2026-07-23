@@ -1,4 +1,4 @@
-const CACHE_NAME = "answering-library-local-app-v30";
+const CACHE_NAME = "answering-library-local-app-v31";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -88,6 +88,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
+  if (new URL(request.url).pathname.startsWith("/api/")) return;
 
   event.respondWith(
     fetch(request)

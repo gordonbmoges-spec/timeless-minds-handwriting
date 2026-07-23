@@ -27,6 +27,13 @@ test("serves the application shell", async () => {
   assert.match(await response.text(), /魔法书柜/);
 });
 
+test("reports demo mode before a reader writes when the server has no AI key", async () => {
+  const response = await fetch(`${baseUrl}/api/status`);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await response.json(), { mode: "demo", model: "", source: "none" });
+});
+
 test("serves the application shell for every direct persona route", async () => {
   for (const persona of PERSONAS) {
     const response = await fetch(`${baseUrl}/persona/${persona.id}`);
