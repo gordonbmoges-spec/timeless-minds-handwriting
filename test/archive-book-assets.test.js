@@ -234,9 +234,13 @@ test("gives all nine default books visible original profiles and editable profil
   assert.match(html, /原本人设 · 只读/);
   assert.match(html, /id="defaultPersonaIdentity"/);
   assert.match(html, /id="defaultPersonaPersonality"/);
+  assert.match(html, /id="defaultPersonaOpeningLine"/);
   assert.match(html, /id="personaIdentity"[^>]*maxlength="500"/);
   assert.match(html, /id="personaPersonality"[^>]*maxlength="500"/);
+  assert.match(html, /id="personaOpeningLine"[^>]*maxlength="120"/);
+  assert.match(html, /当前开场白（可选，可留空）/);
   assert.match(app, /personaProfileStore\.save\(state\.persona\.id/);
+  assert.match(app, /\{ identity, personality, openingLine \}/);
   assert.match(app, /personaProfile: state\.persona\.isCustom \? null : personaProfileStore\.load/);
 });
 
@@ -275,10 +279,10 @@ test("shows whether real AI, an edited persona, and memory are actually active",
   const sw = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
 
   assert.match(client, /fetch\("\/api\/status"/);
-  assert.match(app, /当前人设：.*修改版优先生效/s);
+  assert.match(app, /当前设定：.*已发送.*身份.*口吻.*开场白/s);
   assert.match(app, /修改版已保存，等待真实 AI/);
-  assert.match(app, /长期记忆：.*已载入/s);
+  assert.match(app, /长期记忆：.*已发送/s);
   assert.match(app, /演示模式 · 不会识别手写，也不会调用人物设定和记忆/);
-  assert.match(sw, /answering-library-local-app-v31/);
+  assert.match(sw, /answering-library-local-app-v32/);
   assert.match(sw, /pathname\.startsWith\("\/api\/"\)/);
 });

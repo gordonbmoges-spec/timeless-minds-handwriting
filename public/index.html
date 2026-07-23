@@ -277,6 +277,7 @@
           <dl class="original-persona-grid">
             <div><dt>身份背景</dt><dd id="defaultPersonaIdentity"></dd></div>
             <div><dt>性格与回答口吻</dt><dd id="defaultPersonaPersonality"></dd></div>
+            <div><dt>打开书时的第一句话</dt><dd id="defaultPersonaOpeningLine"></dd></div>
           </dl>
         </section>
         <div class="form-field">
@@ -286,7 +287,12 @@
         <div class="form-field">
           <label for="personaPersonality">当前性格与回答口吻（可修改）</label>
           <textarea id="personaPersonality" name="personaPersonality" maxlength="500" rows="4" placeholder="说明性格、思考方式和希望采用的表达方式。"></textarea>
-          <p class="field-hint">修改会叠加在原始人物的史实、作品世界与安全边界之内。</p>
+          <p class="field-hint">保存后会作为当前实际身份和口吻发送给模型；原始资料仅用于恢复与补充未说明的作品边界。</p>
+        </div>
+        <div class="form-field">
+          <label for="personaOpeningLine">当前开场白（可选，可留空）</label>
+          <input id="personaOpeningLine" name="personaOpeningLine" maxlength="120" placeholder="例如：你终于还是打开了这本书。" />
+          <p class="field-hint">填写后会在打开书时显示并发送给模型；留空则不开场，也不发送开场白。</p>
         </div>
         <div class="form-field">
           <label for="personaInstruction">额外回复偏好（可选）</label>
@@ -300,7 +306,7 @@
         </div>
         <p class="form-message" id="replyFormMessage" aria-live="polite"></p>
         <footer class="dialog-actions">
-          <button class="secondary-button" id="clearReplySettings" type="button">恢复原本人设</button>
+          <button class="secondary-button" id="clearReplySettings" type="button">恢复原本人设与开场白</button>
           <button class="primary-button" type="submit">保存设置</button>
         </footer>
       </form>

@@ -1,6 +1,7 @@
 const KEY_PREFIX = "minds-archive-persona-profile-v1-";
 const MAX_IDENTITY_LENGTH = 500;
 const MAX_PERSONALITY_LENGTH = 500;
+const MAX_OPENING_LINE_LENGTH = 120;
 
 export function createPersonaProfileStore(storage = globalThis.localStorage) {
   function load(personaId) {
@@ -39,8 +40,10 @@ export function normalizePersonaProfile(profile) {
   if (!profile || typeof profile !== "object") return null;
   const identity = cleanText(profile.identity, MAX_IDENTITY_LENGTH);
   const personality = cleanText(profile.personality, MAX_PERSONALITY_LENGTH);
-  if (!identity && !personality) return null;
-  return { identity, personality };
+  const hasOpeningLine = Object.prototype.hasOwnProperty.call(profile, "openingLine");
+  const openingLine = cleanText(profile.openingLine, MAX_OPENING_LINE_LENGTH);
+  if (!identity && !personality && !openingLine && !hasOpeningLine) return null;
+  return hasOpeningLine ? { identity, personality, openingLine } : { identity, personality };
 }
 
 export function applyPersonaProfile(persona, profile) {
@@ -51,6 +54,9 @@ export function applyPersonaProfile(persona, profile) {
     ...persona,
     identity: normalized.identity || persona.identity,
     personality: normalized.personality || persona.personality,
+    openingLine: Object.prototype.hasOwnProperty.call(normalized, "openingLine")
+      ? normalized.openingLine
+      : persona.openingLine,
     hasProfileOverride: true
   };
 }

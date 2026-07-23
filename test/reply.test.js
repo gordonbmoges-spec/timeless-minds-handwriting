@@ -49,6 +49,11 @@ test("honestly reports that demo mode cannot detect handwriting language", async
       source: "none",
       personaId: "confucius",
       profileApplied: false,
+      profileFieldsApplied: {
+        identity: false,
+        personality: false,
+        openingLine: false
+      },
       memoryApplied: false,
       historyTurns: 0
     });
@@ -228,23 +233,30 @@ test("adds a bounded editable profile for a default persona without replacing so
         personaId: "einstein",
         personaProfile: {
           identity: `专注于日常产品设计。${"身份".repeat(300)}`,
-          personality: "先给结论，再做一个简短思想实验。"
+          personality: "先给结论，再做一个简短思想实验。",
+          openingLine: "我是现在的爱因斯坦。先写下你的问题。"
         }
       })
     });
     assert.equal(response.status, 200);
     const systemPrompt = upstreamBody.messages.find((message) => message.role === "system").content;
-    assert.match(systemPrompt, /读者为这一本书调整的人物资料/);
-    assert.match(systemPrompt, /当前生效的演绎设定/);
-    assert.match(systemPrompt, /专注于日常产品设计/);
+    assert.match(systemPrompt, /读者为这一本书保存了当前生效的人物资料/);
+    assert.match(systemPrompt, /当前生效的人物资料/);
+    assert.match(systemPrompt, /当前实际回答身份.*专注于日常产品设计/);
     assert.match(systemPrompt, /先给结论，再做一个简短思想实验/);
-    assert.match(systemPrompt, /必须优先且明显体现这份当前设定/);
-    assert.match(systemPrompt, /不能覆盖人物的史实或原作世界边界/);
+    assert.match(systemPrompt, /当前开场白.*我是现在的爱因斯坦/);
+    assert.match(systemPrompt, /默认档案不能覆盖读者保存的当前身份/);
+    assert.match(systemPrompt, /不能覆盖作品事实边界/);
     assert.match(systemPrompt, /不得编造/);
-    assert.ok(systemPrompt.indexOf("当前生效的演绎设定") < systemPrompt.indexOf("思考方式："));
+    assert.doesNotMatch(systemPrompt, /^你是阿尔伯特·爱因斯坦/m);
     assert.ok(systemPrompt.length < 2_800);
     const data = await response.json();
     assert.equal(data.diagnostics.profileApplied, true);
+    assert.deepEqual(data.diagnostics.profileFieldsApplied, {
+      identity: true,
+      personality: true,
+      openingLine: true
+    });
     assert.equal(data.diagnostics.mode, "ai");
     assert.equal(data.diagnostics.source, "server");
   });

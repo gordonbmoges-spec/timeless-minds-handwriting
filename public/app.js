@@ -74,8 +74,8 @@ const elements = Object.fromEntries([
   "apiSettingsDialog", "apiSettingsForm", "closeApiSettings", "clearApiSettings",
   "toggleApiKey", "apiProvider", "apiKey", "apiBaseUrl", "apiModel", "modelHint",
   "apiFormMessage", "replySettingsDialog", "replySettingsForm", "replySettingsTitle", "closeReplySettings",
-  "clearReplySettings", "defaultPersonaIdentity", "defaultPersonaPersonality", "personaIdentity",
-  "personaPersonality", "personaInstruction", "personaMemory", "replyFormMessage", "historyDialog",
+  "clearReplySettings", "defaultPersonaIdentity", "defaultPersonaPersonality", "defaultPersonaOpeningLine", "personaIdentity",
+  "personaPersonality", "personaOpeningLine", "personaInstruction", "personaMemory", "replyFormMessage", "historyDialog",
   "closeHistory", "clearHistory", "historyList", "historyTitle", "createBookDialog",
   "createBookForm", "closeCreateBook", "customBookTitle", "customPersonaName", "customIdentity",
   "customPersonality", "customMemory", "customOpeningLine", "createBookMessage",
@@ -1197,10 +1197,21 @@ function updateConnectionCopy(diagnostics = null) {
   const activeStatus = config
     ? { mode: "ai", model: config.model, source: "session" }
     : state.aiStatus;
-  const profileApplied = Boolean(state.persona && personaProfileStore.load(state.persona.id));
-  const memoryApplied = Boolean(state.persona && readPersonaMemory(state.persona.id));
+  const activeProfile = state.persona ? personaProfileStore.load(state.persona.id) : null;
+  const profileApplied = Boolean(activeProfile);
+  const appliedFields = diagnostics?.profileFieldsApplied || {
+    identity: Boolean(activeProfile?.identity),
+    personality: Boolean(activeProfile?.personality),
+    openingLine: Boolean(activeProfile?.openingLine)
+  };
+  const appliedFieldCopy = [
+    appliedFields.identity ? "身份" : "",
+    appliedFields.personality ? "口吻" : "",
+    appliedFields.openingLine ? "开场白" : ""
+  ].filter(Boolean).join("、");
+  const memoryApplied = diagnostics ? Boolean(diagnostics.memoryApplied) : Boolean(state.persona && readPersonaMemory(state.persona.id));
   const personaCopy = (aiActive) => state.persona
-    ? ` · 当前人设：${profileApplied ? (aiActive ? "修改版优先生效" : "修改版已保存，等待真实 AI") : "原始设定"} · 长期记忆：${memoryApplied ? (aiActive ? "已载入" : "已保存，等待真实 AI") : "空"}`
+    ? ` · 当前设定：${profileApplied ? (aiActive ? `已发送（${appliedFieldCopy || "人物资料"}）` : "修改版已保存，等待真实 AI") : "原始设定"} · 长期记忆：${memoryApplied ? (aiActive ? "已发送" : "已保存，等待真实 AI") : "空"}`
     : "";
 
   if (activeStatus.mode === "ai") {
@@ -1255,10 +1266,15 @@ function showReplySettings() {
   const savedProfile = personaProfileStore.load(state.persona.id);
   const originalIdentity = original?.identity || "这本书尚未记录原始身份背景。";
   const originalPersonality = original?.personality || "这本书尚未记录原始性格与回答口吻。";
+  const originalOpeningLine = original?.openingLine || "这本书尚未记录原始开场白。";
   elements.defaultPersonaIdentity.textContent = originalIdentity;
   elements.defaultPersonaPersonality.textContent = originalPersonality;
+  elements.defaultPersonaOpeningLine.textContent = originalOpeningLine;
   elements.personaIdentity.value = savedProfile?.identity || original?.identity || "";
   elements.personaPersonality.value = savedProfile?.personality || original?.personality || "";
+  elements.personaOpeningLine.value = savedProfile && Object.prototype.hasOwnProperty.call(savedProfile, "openingLine")
+    ? savedProfile.openingLine
+    : (original?.openingLine || "");
   elements.personaInstruction.value = readReplyPreference(state.persona.id);
   elements.personaMemory.value = readPersonaMemory(state.persona.id);
   elements.replySettingsTitle.textContent = `${state.persona.name} · 人物设定与记忆`;
@@ -1274,13 +1290,16 @@ function saveReplyPreference(event) {
   const original = findOriginalPersona(state.persona.id);
   const identity = elements.personaIdentity.value.replace(/\s+/g, " ").trim().slice(0, 500);
   const personality = elements.personaPersonality.value.replace(/\s+/g, " ").trim().slice(0, 500);
+  const openingLine = elements.personaOpeningLine.value.replace(/\s+/g, " ").trim().slice(0, 120);
   const value = elements.personaInstruction.value.replace(/\s+/g, " ").trim().slice(0, 300);
   const memory = elements.personaMemory.value.replace(/\s+/g, " ").trim().slice(0, 600);
   try {
-    const profileIsDefault = identity === (original?.identity || "") && personality === (original?.personality || "");
+    const profileIsDefault = identity === (original?.identity || "")
+      && personality === (original?.personality || "")
+      && openingLine === (original?.openingLine || "");
     const profileSaved = profileIsDefault
       ? personaProfileStore.clear(state.persona.id)
-      : personaProfileStore.save(state.persona.id, { identity, personality });
+      : personaProfileStore.save(state.persona.id, { identity, personality, openingLine });
     if (!profileSaved) throw new Error("profile_not_saved");
     if (value) localStorage.setItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`, value);
     else localStorage.removeItem(`${REPLY_PREFERENCE_PREFIX}${state.persona.id}`);
@@ -1291,6 +1310,7 @@ function saveReplyPreference(event) {
   }
   elements.personaIdentity.value = identity;
   elements.personaPersonality.value = personality;
+  elements.personaOpeningLine.value = openingLine;
   elements.personaInstruction.value = value;
   elements.personaMemory.value = memory;
   state.persona = findAvailablePersona(state.persona.id);
@@ -1306,10 +1326,11 @@ function clearSavedReplyPreference() {
   personaProfileStore.clear(state.persona.id);
   elements.personaIdentity.value = original?.identity || "";
   elements.personaPersonality.value = original?.personality || "";
+  elements.personaOpeningLine.value = original?.openingLine || "";
   elements.personaInstruction.value = "";
   state.persona = findAvailablePersona(state.persona.id);
   updateConnectionCopy();
-  showReplyFormMessage("已恢复原本人设与默认回复方式；长期记忆仍然保留。", "success");
+  showReplyFormMessage("已恢复原始身份、性格、开场白与默认回复方式；长期记忆仍然保留。", "success");
 }
 
 function readReplyPreference(personaId) {

@@ -440,7 +440,10 @@ function normalizePersonaProfile(value) {
   if (!value || typeof value !== "object") return null;
   const identity = cleanText(value.identity || "", 500);
   const personality = cleanText(value.personality || "", 500);
-  return identity || personality ? { identity, personality } : null;
+  const hasOpeningLine = Object.prototype.hasOwnProperty.call(value, "openingLine");
+  const openingLine = cleanText(value.openingLine || "", 120);
+  if (!identity && !personality && !openingLine && !hasOpeningLine) return null;
+  return hasOpeningLine ? { identity, personality, openingLine } : { identity, personality };
 }
 
 function normalizeStyle(style = {}) {
@@ -522,6 +525,11 @@ function replyDiagnostics({ apiConfig, persona, personaProfile, personaMemory, h
     ...publicAiStatus(apiConfig),
     personaId: persona.id,
     profileApplied: Boolean(personaProfile),
+    profileFieldsApplied: {
+      identity: Boolean(personaProfile?.identity),
+      personality: Boolean(personaProfile?.personality),
+      openingLine: Boolean(personaProfile?.openingLine)
+    },
     memoryApplied: Boolean(personaMemory),
     historyTurns: history.length
   };

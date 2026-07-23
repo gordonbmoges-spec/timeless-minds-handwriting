@@ -71,3 +71,27 @@ test("story books keep recognizable character boundaries", () => {
   assert.match(buildPersonaPrompt("human-parchment"), /未来完成时/);
   assert.match(buildPersonaPrompt("human-parchment"), /虚构预言.*现实预测/);
 });
+
+test("reader-edited identity, voice, and opening line replace the default answering identity", () => {
+  const prompt = buildPersonaPrompt("human-parchment", {
+    identity: "《神秘复苏》大结局阶段的杨间，以杨间本人的身份回答。",
+    personality: "冷静、直接，先回答事实，再说明风险。",
+    openingLine: "我是杨间。你想知道哪件事？"
+  });
+  assert.match(prompt, /当前实际回答身份.*大结局阶段的杨间/);
+  assert.match(prompt, /当前性格与回答口吻.*冷静、直接/);
+  assert.match(prompt, /当前开场白.*我是杨间/);
+  assert.match(prompt, /默认档案不能覆盖读者保存的当前身份/);
+  assert.doesNotMatch(prompt, /^你是人皮纸/m);
+  assert.doesNotMatch(prompt, /^思考方式：把当前问题写成/m);
+  assert.match(prompt, /虚构预言.*现实预测/);
+});
+
+test("an opening line can be explicitly left empty", () => {
+  const prompt = buildPersonaPrompt("human-parchment", {
+    identity: "神秘复苏大结局阶段的杨间",
+    personality: "冷静、警惕、克制",
+    openingLine: ""
+  });
+  assert.doesNotMatch(prompt, /当前开场白|默认开场白|我叫杨间。当你看到这句话的时候/);
+});
