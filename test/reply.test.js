@@ -70,11 +70,13 @@ test("reports a server AI connection without exposing its key", async () => {
   });
 });
 
-test("returns the model reply as-is without a language repair request", async () => {
+test("repairs a foreign persona reply when English handwriting receives Chinese output", async () => {
   const upstreamBodies = [];
   const fetchImpl = async (_url, init) => {
     upstreamBodies.push(JSON.parse(init.body));
-    const content = { transcript: "What makes a life worth living?", reply: "先问清楚，你所说的值得究竟是什么。" };
+    const content = upstreamBodies.length === 1
+      ? { transcript: "What makes a life worth living?", reply: "先问清楚，你所说的值得究竟是什么。" }
+      : { reply: "First tell me what you mean by worthy; an unexamined measure may belong to the crowd rather than to you." };
     return new Response(JSON.stringify({
       choices: [{ message: { content: JSON.stringify(content) } }]
     }), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -89,8 +91,9 @@ test("returns the model reply as-is without a language repair request", async ()
     const data = await response.json();
     assert.equal(response.status, 200);
     assert.equal(data.transcript, "What makes a life worth living?");
-    assert.equal(data.reply, "先问清楚，你所说的值得究竟是什么。");
-    assert.equal(upstreamBodies.length, 1);
+    assert.equal(data.reply, "First tell me what you mean by worthy; an unexamined measure may belong to the crowd rather than to you.");
+    assert.equal(upstreamBodies.length, 2);
+    assert.match(upstreamBodies[1].messages[0].content, /entirely in English/);
   });
 });
 
@@ -133,11 +136,13 @@ test("does not truncate a long model reply", async () => {
   });
 });
 
-test("does not force a configured persona into a fixed reply language", async () => {
+test("keeps a Chinese persona reply in Chinese even when the handwriting is English", async () => {
   const upstreamBodies = [];
   const fetchImpl = async (_url, init) => {
     upstreamBodies.push(JSON.parse(init.body));
-    const content = { transcript: "How should I treat my friends?", reply: "Treat them with sincerity, and examine your own conduct first." };
+    const content = upstreamBodies.length === 1
+      ? { transcript: "How should I treat my friends?", reply: "Treat them with sincerity, and examine your own conduct first." }
+      : { reply: "与友交，当以诚为本；先反求诸己，再责人之失。" };
     return new Response(JSON.stringify({
       choices: [{ message: { content: JSON.stringify(content) } }]
     }), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -152,13 +157,14 @@ test("does not force a configured persona into a fixed reply language", async ()
     const data = await response.json();
     assert.equal(response.status, 200);
     assert.equal(data.transcript, "How should I treat my friends?");
-    assert.equal(data.reply, "Treat them with sincerity, and examine your own conduct first.");
-    assert.equal(upstreamBodies.length, 1);
-    assert.doesNotMatch(upstreamBodies[0].messages[1].content[0].text, /Chinese persona|same primary language/);
+    assert.equal(data.reply, "与友交，当以诚为本；先反求诸己，再责人之失。");
+    assert.equal(upstreamBodies.length, 2);
+    assert.match(upstreamBodies[0].messages[1].content[0].text, /always write this Chinese persona's reply in readable Chinese/);
+    assert.match(upstreamBodies[1].messages[0].content, /entirely in Chinese/);
   });
 });
 
-test("sends only the editable persona fields plus technical JSON instructions", async () => {
+test("keeps unannotated persona and language rules around the editable profile", async () => {
   let upstreamBody;
   const fetchImpl = async (_url, init) => {
     upstreamBody = JSON.parse(init.body);
@@ -194,18 +200,21 @@ test("sends only the editable persona fields plus technical JSON instructions", 
     assert.equal(data.personaId, "socrates");
     const systemPrompt = upstreamBody.messages.find((message) => message.role === "system").content;
     const userPrompt = upstreamBody.messages.find((message) => message.role === "user").content[0].text;
-    assert.match(systemPrompt, /人物设定：古典雅典的哲学家苏格拉底/);
-    assert.match(systemPrompt, /性格与口吻：坦率、温和而尖锐/);
+    assert.match(systemPrompt, /当前实际回答身份.*古典雅典的哲学家苏格拉底/);
+    assert.match(systemPrompt, /当前性格与回答口吻.*坦率、温和而尖锐/);
+    assert.match(systemPrompt, /作品与译介传统/);
+    assert.match(systemPrompt, /始终使用第一人称/);
+    assert.match(systemPrompt, /英文问题用英文回答.*中文问题用中文回答/);
     assert.match(systemPrompt, /自由发挥，不限制字数/);
-    assert.match(userPrompt, /识别图片中的手写文字/);
-    assert.doesNotMatch(systemPrompt, /作品与译介传统|主要参考作品|时代边界|正史|开场白|原作者|回复长度/);
-    assert.doesNotMatch(userPrompt, /source-work|translator|primary language|Long-term memory|Recent conversation/);
+    assert.match(userPrompt, /Reply in that same primary language/);
+    assert.match(userPrompt, /source-work tradition/);
+    assert.doesNotMatch(systemPrompt, /当前开场白|本书默认档案|主要参考作品|时代边界|不把同人|不确定的细节|不得近似模仿在世作者|不得复现长段|优先回答用户|35至90|一至三句|Markdown/);
     assert.equal("max_tokens" in upstreamBody, false);
     assert.doesNotMatch(JSON.stringify(upstreamBody), /test-key/);
   });
 });
 
-test("adds a bounded reader-authored reply preference without hidden constraints", async () => {
+test("adds the reader-authored reply preference while keeping unannotated safeguards", async () => {
   let upstreamBody;
   const fetchImpl = async (_url, init) => {
     upstreamBody = JSON.parse(init.body);
@@ -227,10 +236,11 @@ test("adds a bounded reader-authored reply preference without hidden constraints
     assert.equal(response.status, 200);
     const systemPrompt = upstreamBody.messages.find((message) => message.role === "system").content;
     assert.match(systemPrompt, /孔子/);
-    assert.match(systemPrompt, /补充回复偏好/);
+    assert.match(systemPrompt, /用户的回复偏好/);
     assert.match(systemPrompt, /先直接回答/);
-    assert.doesNotMatch(systemPrompt, /不能覆盖|语言匹配|作品与译介传统|不得编造|回复长度/);
-    assert.ok(systemPrompt.length < 1_800);
+    assert.match(systemPrompt, /不能覆盖人物身份、语言匹配、安全规则、禁止编造和输出格式/);
+    assert.doesNotMatch(systemPrompt, /作品事实边界|版权限制|回复长度规则/);
+    assert.ok(systemPrompt.length < 3_500);
   });
 });
 
@@ -259,10 +269,12 @@ test("uses the edited default-book profile and never sends its opening line", as
     });
     assert.equal(response.status, 200);
     const systemPrompt = upstreamBody.messages.find((message) => message.role === "system").content;
-    assert.match(systemPrompt, /人物设定：专注于日常产品设计/);
+    assert.match(systemPrompt, /当前实际回答身份.*专注于日常产品设计/);
     assert.match(systemPrompt, /先给结论，再做一个简短思想实验/);
-    assert.doesNotMatch(systemPrompt, /我是现在的爱因斯坦|开场白|阿尔伯特·爱因斯坦|默认档案|作品事实|不得编造/);
-    assert.ok(systemPrompt.length < 2_800);
+    assert.match(systemPrompt, /作品与译介传统/);
+    assert.match(systemPrompt, /始终使用第一人称/);
+    assert.doesNotMatch(systemPrompt, /我是现在的爱因斯坦|当前开场白|本书默认档案|主要参考作品|时代边界|回复长度规则/);
+    assert.ok(systemPrompt.length < 4_500);
     const data = await response.json();
     assert.equal(data.diagnostics.profileApplied, true);
     assert.deepEqual(data.diagnostics.profileFieldsApplied, {
@@ -325,12 +337,15 @@ test("custom books send persona, memory and history but never send the opening l
     const systemPrompt = upstreamBody.messages.find((message) => message.role === "system").content;
     const userPrompt = upstreamBody.messages.find((message) => message.role === "user").content[0].text;
     assert.match(systemPrompt, /阿尔文教授/);
-    assert.match(systemPrompt, /人物设定：研究月相与金属变化的老教授/);
-    assert.match(systemPrompt, /长期记忆：读者叫小腾/);
-    assert.match(systemPrompt, /最近对话历史/);
-    assert.match(systemPrompt, /上次我们谈了什么/);
-    assert.doesNotMatch(systemPrompt, /你终于打开了这本书|月光炼金术笔记|开场/);
-    assert.doesNotMatch(userPrompt, /读者叫小腾|上次我们谈了什么/);
+    assert.match(systemPrompt, /书名：月光炼金术笔记/);
+    assert.match(systemPrompt, /身份背景：研究月相与金属变化的老教授/);
+    assert.match(systemPrompt, /始终用第一人称直接回答/);
+    assert.match(systemPrompt, /自由发挥，不限制字数/);
+    assert.match(userPrompt, /Long-term memory supplied by the reader/);
+    assert.match(userPrompt, /读者叫小腾/);
+    assert.match(userPrompt, /Recent conversation/);
+    assert.match(userPrompt, /上次我们谈了什么/);
+    assert.doesNotMatch(systemPrompt, /你终于打开了这本书|开场语|中文回复控制|受版权保护|模仿在世作者|Markdown/);
   });
 });
 

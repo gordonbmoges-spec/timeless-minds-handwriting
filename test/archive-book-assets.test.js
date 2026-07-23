@@ -287,6 +287,6 @@ test("shows whether real AI, an edited persona, and memory are actually active",
   assert.match(app, /修改版已保存，等待真实 AI/);
   assert.match(app, /长期记忆：.*已发送/s);
   assert.match(app, /演示模式 · 不会识别手写，也不会调用人物设定和记忆/);
-  assert.match(sw, /answering-library-local-app-v33/);
+  assert.match(sw, /answering-library-local-app-v34/);
   assert.match(sw, /pathname\.startsWith\("\/api\/"\)/);
 });
