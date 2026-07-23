@@ -239,6 +239,8 @@ test("gives all nine default books visible original profiles and editable profil
   assert.match(html, /id="personaPersonality"[^>]*maxlength="500"/);
   assert.match(html, /id="personaOpeningLine"[^>]*maxlength="120"/);
   assert.match(html, /当前开场白（可选，可留空）/);
+  assert.match(html, /原始资料只用于查看和恢复默认文本/);
+  assert.doesNotMatch(html, /补充未说明的作品边界/);
   assert.match(app, /personaProfileStore\.save\(state\.persona\.id/);
   assert.match(app, /\{ identity, personality, openingLine \}/);
   assert.match(app, /personaProfile: state\.persona\.isCustom \? null : \{[\s\S]*identity: state\.persona\.identity[\s\S]*personality: state\.persona\.personality/);
