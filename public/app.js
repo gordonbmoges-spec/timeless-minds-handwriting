@@ -1042,13 +1042,15 @@ async function commitPage() {
       history: state.history.slice(0, 6).reverse(),
       personaInstruction: readReplyPreference(state.persona.id),
       personaMemory: readPersonaMemory(state.persona.id),
-      personaProfile: state.persona.isCustom ? null : personaProfileStore.load(state.persona.id),
+      personaProfile: state.persona.isCustom ? null : {
+        identity: state.persona.identity || state.persona.name || "",
+        personality: state.persona.personality || ""
+      },
       customPersona: state.persona.isCustom ? {
         name: state.persona.name,
         bookTitle: state.persona.bookTitle,
         identity: state.persona.identity,
-        personality: state.persona.personality,
-        openingLine: state.persona.openingLine
+        personality: state.persona.personality
       } : null,
       apiConfig: readApiSettings()
     });
@@ -1197,12 +1199,15 @@ function updateConnectionCopy(diagnostics = null) {
   const activeStatus = config
     ? { mode: "ai", model: config.model, source: "session" }
     : state.aiStatus;
-  const activeProfile = state.persona ? personaProfileStore.load(state.persona.id) : null;
-  const profileApplied = Boolean(activeProfile);
+  const activeProfile = state.persona && !state.persona.isCustom ? {
+    identity: state.persona.identity || state.persona.name || "",
+    personality: state.persona.personality || ""
+  } : null;
+  const profileApplied = diagnostics ? Boolean(diagnostics.profileApplied) : Boolean(activeProfile);
   const appliedFields = diagnostics?.profileFieldsApplied || {
     identity: Boolean(activeProfile?.identity),
     personality: Boolean(activeProfile?.personality),
-    openingLine: Boolean(activeProfile?.openingLine)
+    openingLine: false
   };
   const appliedFieldCopy = [
     appliedFields.identity ? "身份" : "",

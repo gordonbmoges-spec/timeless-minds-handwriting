@@ -241,7 +241,8 @@ test("gives all nine default books visible original profiles and editable profil
   assert.match(html, /当前开场白（可选，可留空）/);
   assert.match(app, /personaProfileStore\.save\(state\.persona\.id/);
   assert.match(app, /\{ identity, personality, openingLine \}/);
-  assert.match(app, /personaProfile: state\.persona\.isCustom \? null : personaProfileStore\.load/);
+  assert.match(app, /personaProfile: state\.persona\.isCustom \? null : \{[\s\S]*identity: state\.persona\.identity[\s\S]*personality: state\.persona\.personality/);
+  assert.match(html, /只用于打开书时显示，不会发送给模型/);
 });
 
 test("keeps the parchment panoramic by default and blocks native selection inside handwriting", async () => {
@@ -279,10 +280,11 @@ test("shows whether real AI, an edited persona, and memory are actually active",
   const sw = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
 
   assert.match(client, /fetch\("\/api\/status"/);
-  assert.match(app, /当前设定：.*已发送.*身份.*口吻.*开场白/s);
+  assert.match(app, /当前设定：.*已发送.*身份.*口吻/s);
+  assert.doesNotMatch(app, /openingLine: state\.persona\.openingLine/);
   assert.match(app, /修改版已保存，等待真实 AI/);
   assert.match(app, /长期记忆：.*已发送/s);
   assert.match(app, /演示模式 · 不会识别手写，也不会调用人物设定和记忆/);
-  assert.match(sw, /answering-library-local-app-v32/);
+  assert.match(sw, /answering-library-local-app-v33/);
   assert.match(sw, /pathname\.startsWith\("\/api\/"\)/);
 });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { PERSONA_IDS, buildPersonaPrompt, getPersona } from "../lib/personas.js";
+import { PERSONA_IDS, buildCustomPersonaPrompt, buildPersonaPrompt, getPersona } from "../lib/personas.js";
 
 test("registers the six thinkers and three story books", () => {
   assert.deepEqual(PERSONA_IDS, [
@@ -22,27 +22,13 @@ test("returns no persona for an unregistered id", () => {
   assert.equal(getPersona(""), null);
 });
 
-test("builds a first-person, era-analogy, short-reply prompt", () => {
+test("builds a minimal unconstrained fallback prompt", () => {
   const prompt = buildPersonaPrompt("confucius");
-  assert.match(prompt, /孔子/);
-  assert.match(prompt, /第一人称/);
-  assert.match(prompt, /时代类比/);
-  assert.match(prompt, /40.*80/);
-  assert.match(prompt, /不得编造/);
-  assert.match(prompt, /优先直接回答/);
-  assert.match(prompt, /你是谁/);
-  assert.match(prompt, /简短.*自我介绍/);
-  assert.match(prompt, /不要.*堆砌.*经典/);
-  assert.match(prompt, /英文问题用英文回答.*中文问题用中文回答/);
-  assert.match(prompt, /半文半白.*浅近文言/);
-  assert.match(prompt, /外国人物.*中文译本/);
-  assert.match(prompt, /原作、公共领域译本、通行译介传统/);
-  assert.match(prompt, /不照搬.*现代译者/);
-  assert.match(prompt, /透明翻译/);
-  assert.match(prompt, /表层语言属于用户/);
-  assert.match(prompt, /作品与译介传统：.*论语/);
-  assert.match(prompt, /主要参考作品：.*论语/);
-  assert.match(prompt, /回复语言规则：.*始终.*中文/);
+  assert.equal(prompt, [
+    "人物设定：孔子",
+    "请按照人物口吻自然回答，可以自由发挥，不限制字数。"
+  ].join("\n"));
+  assert.doesNotMatch(prompt, /作品|正史|同人|参考|译介|开场白|Markdown|字数控制|原作者/);
 });
 
 test("only Chinese-origin books fix their reply language to Chinese", () => {
@@ -52,46 +38,42 @@ test("only Chinese-origin books fix their reply language to Chinese", () => {
   assert.equal(getPersona("tom-riddle").replyLanguage, undefined);
 });
 
-test("keeps Shakespeare recognizable through original and translated traditions", () => {
-  const prompt = buildPersonaPrompt("shakespeare");
-  assert.match(prompt, /舞台.*角色.*幕布/);
-  assert.match(prompt, /不堆砌 thou、thee/);
-  assert.match(prompt, /成熟.*戏剧翻译传统/);
-});
-
 test("keeps all persona prompts visibly distinct", () => {
   const prompts = PERSONA_IDS.map((id) => buildPersonaPrompt(id));
   assert.equal(new Set(prompts).size, PERSONA_IDS.length);
 });
 
-test("story books keep recognizable character boundaries", () => {
-  assert.match(buildPersonaPrompt("magic-mirror"), /当然是你呀，皇后/);
-  assert.match(buildPersonaPrompt("tom-riddle"), /汤姆·里德尔.*日记/s);
-  assert.match(buildPersonaPrompt("tom-riddle"), /不照抄小说对白.*不模仿原作者文风/);
-  assert.match(buildPersonaPrompt("human-parchment"), /未来完成时/);
-  assert.match(buildPersonaPrompt("human-parchment"), /虚构预言.*现实预测/);
-});
-
-test("reader-edited identity, voice, and opening line replace the default answering identity", () => {
+test("reader-edited identity and voice are the complete answering profile", () => {
   const prompt = buildPersonaPrompt("human-parchment", {
     identity: "《神秘复苏》大结局阶段的杨间，以杨间本人的身份回答。",
     personality: "冷静、直接，先回答事实，再说明风险。",
     openingLine: "我是杨间。你想知道哪件事？"
   });
-  assert.match(prompt, /当前实际回答身份.*大结局阶段的杨间/);
-  assert.match(prompt, /当前性格与回答口吻.*冷静、直接/);
-  assert.match(prompt, /当前开场白.*我是杨间/);
-  assert.match(prompt, /默认档案不能覆盖读者保存的当前身份/);
-  assert.doesNotMatch(prompt, /^你是人皮纸/m);
-  assert.doesNotMatch(prompt, /^思考方式：把当前问题写成/m);
-  assert.match(prompt, /虚构预言.*现实预测/);
+  assert.match(prompt, /^人物设定：《神秘复苏》大结局阶段的杨间/m);
+  assert.match(prompt, /^性格与口吻：冷静、直接/m);
+  assert.match(prompt, /自由发挥，不限制字数/);
+  assert.doesNotMatch(prompt, /人皮纸|开场白|默认档案|作品|正史|现实预测|原作者/);
 });
 
-test("an opening line can be explicitly left empty", () => {
+test("opening lines are never sent to the model", () => {
   const prompt = buildPersonaPrompt("human-parchment", {
     identity: "神秘复苏大结局阶段的杨间",
     personality: "冷静、警惕、克制",
     openingLine: ""
   });
-  assert.doesNotMatch(prompt, /当前开场白|默认开场白|我叫杨间。当你看到这句话的时候/);
+  assert.doesNotMatch(prompt, /开场白|我叫杨间。当你看到这句话的时候/);
+});
+
+test("custom books send only reader-authored persona fields", () => {
+  const prompt = buildCustomPersonaPrompt({
+    name: "阿尔文教授",
+    bookTitle: "月光炼金术笔记",
+    identity: "研究月相与金属变化的老教授。",
+    personality: "谨慎机智，喜欢用比喻。",
+    openingLine: "你终于打开了这本书。"
+  });
+  assert.match(prompt, /人物名称：阿尔文教授/);
+  assert.match(prompt, /人物设定：研究月相与金属变化的老教授/);
+  assert.match(prompt, /性格与口吻：谨慎机智/);
+  assert.doesNotMatch(prompt, /月光炼金术笔记|你终于打开了这本书|开场|作品|正史|字数控制/);
 });

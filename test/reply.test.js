@@ -70,13 +70,11 @@ test("reports a server AI connection without exposing its key", async () => {
   });
 });
 
-test("repairs a foreign persona reply when English handwriting receives Chinese output", async () => {
+test("returns the model reply as-is without a language repair request", async () => {
   const upstreamBodies = [];
   const fetchImpl = async (_url, init) => {
     upstreamBodies.push(JSON.parse(init.body));
-    const content = upstreamBodies.length === 1
-      ? { transcript: "What makes a life worth living?", reply: "先问清楚，你所说的值得究竟是什么。" }
-      : { reply: "First tell me what you mean by worthy; an unexamined measure may belong to the crowd rather than to you." };
+    const content = { transcript: "What makes a life worth living?", reply: "先问清楚，你所说的值得究竟是什么。" };
     return new Response(JSON.stringify({
       choices: [{ message: { content: JSON.stringify(content) } }]
     }), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -91,9 +89,8 @@ test("repairs a foreign persona reply when English handwriting receives Chinese 
     const data = await response.json();
     assert.equal(response.status, 200);
     assert.equal(data.transcript, "What makes a life worth living?");
-    assert.equal(data.reply, "First tell me what you mean by worthy; an unexamined measure may belong to the crowd rather than to you.");
-    assert.equal(upstreamBodies.length, 2);
-    assert.match(upstreamBodies[1].messages[0].content, /entirely in English/);
+    assert.equal(data.reply, "先问清楚，你所说的值得究竟是什么。");
+    assert.equal(upstreamBodies.length, 1);
   });
 });
 
@@ -119,13 +116,28 @@ test("does not make a second request when an English reply already matches", asy
   });
 });
 
-test("keeps a Chinese persona reply in Chinese even when the handwriting is English", async () => {
+test("does not truncate a long model reply", async () => {
+  const longReply = "我是汤姆，这一页会把你写下的秘密完整保留下来。".repeat(40);
+  const fetchImpl = async () => new Response(JSON.stringify({
+    choices: [{ message: { content: JSON.stringify({ transcript: "详细说说", reply: longReply }) } }]
+  }), { status: 200, headers: { "Content-Type": "application/json" } });
+
+  await withServer({ env: { AI_API_KEY: "test-key" }, fetchImpl }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageDataUrl, personaId: "tom-riddle" })
+    });
+    const data = await response.json();
+    assert.equal(data.reply, longReply);
+  });
+});
+
+test("does not force a configured persona into a fixed reply language", async () => {
   const upstreamBodies = [];
   const fetchImpl = async (_url, init) => {
     upstreamBodies.push(JSON.parse(init.body));
-    const content = upstreamBodies.length === 1
-      ? { transcript: "How should I treat my friends?", reply: "Treat them with sincerity, and examine your own conduct first." }
-      : { reply: "与友交，当以诚为本；先反求诸己，再责人之失。" };
+    const content = { transcript: "How should I treat my friends?", reply: "Treat them with sincerity, and examine your own conduct first." };
     return new Response(JSON.stringify({
       choices: [{ message: { content: JSON.stringify(content) } }]
     }), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -140,14 +152,13 @@ test("keeps a Chinese persona reply in Chinese even when the handwriting is Engl
     const data = await response.json();
     assert.equal(response.status, 200);
     assert.equal(data.transcript, "How should I treat my friends?");
-    assert.equal(data.reply, "与友交，当以诚为本；先反求诸己，再责人之失。");
-    assert.equal(upstreamBodies.length, 2);
-    assert.match(upstreamBodies[0].messages[1].content[0].text, /always write this Chinese persona's reply in readable Chinese/);
-    assert.match(upstreamBodies[1].messages[0].content, /entirely in Chinese/);
+    assert.equal(data.reply, "Treat them with sincerity, and examine your own conduct first.");
+    assert.equal(upstreamBodies.length, 1);
+    assert.doesNotMatch(upstreamBodies[0].messages[1].content[0].text, /Chinese persona|same primary language/);
   });
 });
 
-test("selects the server-side persona prompt for an AI request", async () => {
+test("sends only the editable persona fields plus technical JSON instructions", async () => {
   let upstreamBody;
   const fetchImpl = async (_url, init) => {
     upstreamBody = JSON.parse(init.body);
@@ -167,7 +178,15 @@ test("selects the server-side persona prompt for an AI request", async () => {
     const response = await fetch(`${baseUrl}/api/reply`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imageDataUrl, personaId: "socrates", history: [] })
+      body: JSON.stringify({
+        imageDataUrl,
+        personaId: "socrates",
+        personaProfile: {
+          identity: "古典雅典的哲学家苏格拉底。",
+          personality: "坦率、温和而尖锐，喜欢通过连续追问检验观点。"
+        },
+        history: []
+      })
     });
     const data = await response.json();
     assert.equal(response.status, 200);
@@ -175,17 +194,18 @@ test("selects the server-side persona prompt for an AI request", async () => {
     assert.equal(data.personaId, "socrates");
     const systemPrompt = upstreamBody.messages.find((message) => message.role === "system").content;
     const userPrompt = upstreamBody.messages.find((message) => message.role === "user").content[0].text;
-    assert.match(systemPrompt, /苏格拉底/);
-    assert.match(systemPrompt, /英文问题用英文回答/);
-    assert.match(systemPrompt, /外国人物.*中文译本/);
-    assert.match(userPrompt, /Reply in that same primary language/);
-    assert.match(userPrompt, /readable semi-classical Chinese/);
-    assert.match(userPrompt, /established Chinese translation register/);
+    assert.match(systemPrompt, /人物设定：古典雅典的哲学家苏格拉底/);
+    assert.match(systemPrompt, /性格与口吻：坦率、温和而尖锐/);
+    assert.match(systemPrompt, /自由发挥，不限制字数/);
+    assert.match(userPrompt, /识别图片中的手写文字/);
+    assert.doesNotMatch(systemPrompt, /作品与译介传统|主要参考作品|时代边界|正史|开场白|原作者|回复长度/);
+    assert.doesNotMatch(userPrompt, /source-work|translator|primary language|Long-term memory|Recent conversation/);
+    assert.equal("max_tokens" in upstreamBody, false);
     assert.doesNotMatch(JSON.stringify(upstreamBody), /test-key/);
   });
 });
 
-test("adds a bounded reply preference without replacing server rules", async () => {
+test("adds a bounded reader-authored reply preference without hidden constraints", async () => {
   let upstreamBody;
   const fetchImpl = async (_url, init) => {
     upstreamBody = JSON.parse(init.body);
@@ -207,15 +227,14 @@ test("adds a bounded reply preference without replacing server rules", async () 
     assert.equal(response.status, 200);
     const systemPrompt = upstreamBody.messages.find((message) => message.role === "system").content;
     assert.match(systemPrompt, /孔子/);
-    assert.match(systemPrompt, /不得编造/);
-    assert.match(systemPrompt, /用户的回复偏好/);
+    assert.match(systemPrompt, /补充回复偏好/);
     assert.match(systemPrompt, /先直接回答/);
-    assert.match(systemPrompt, /不能覆盖.*语言匹配.*作品与译介传统/);
+    assert.doesNotMatch(systemPrompt, /不能覆盖|语言匹配|作品与译介传统|不得编造|回复长度/);
     assert.ok(systemPrompt.length < 1_800);
   });
 });
 
-test("adds a bounded editable profile for a default persona without replacing source boundaries", async () => {
+test("uses the edited default-book profile and never sends its opening line", async () => {
   let upstreamBody;
   const fetchImpl = async (_url, init) => {
     upstreamBody = JSON.parse(init.body);
@@ -240,22 +259,16 @@ test("adds a bounded editable profile for a default persona without replacing so
     });
     assert.equal(response.status, 200);
     const systemPrompt = upstreamBody.messages.find((message) => message.role === "system").content;
-    assert.match(systemPrompt, /读者为这一本书保存了当前生效的人物资料/);
-    assert.match(systemPrompt, /当前生效的人物资料/);
-    assert.match(systemPrompt, /当前实际回答身份.*专注于日常产品设计/);
+    assert.match(systemPrompt, /人物设定：专注于日常产品设计/);
     assert.match(systemPrompt, /先给结论，再做一个简短思想实验/);
-    assert.match(systemPrompt, /当前开场白.*我是现在的爱因斯坦/);
-    assert.match(systemPrompt, /默认档案不能覆盖读者保存的当前身份/);
-    assert.match(systemPrompt, /不能覆盖作品事实边界/);
-    assert.match(systemPrompt, /不得编造/);
-    assert.doesNotMatch(systemPrompt, /^你是阿尔伯特·爱因斯坦/m);
+    assert.doesNotMatch(systemPrompt, /我是现在的爱因斯坦|开场白|阿尔伯特·爱因斯坦|默认档案|作品事实|不得编造/);
     assert.ok(systemPrompt.length < 2_800);
     const data = await response.json();
     assert.equal(data.diagnostics.profileApplied, true);
     assert.deepEqual(data.diagnostics.profileFieldsApplied, {
       identity: true,
       personality: true,
-      openingLine: true
+      openingLine: false
     });
     assert.equal(data.diagnostics.mode, "ai");
     assert.equal(data.diagnostics.source, "server");
@@ -281,7 +294,7 @@ test("asks for another sample when handwriting cannot be read", async () => {
   });
 });
 
-test("accepts a bounded custom book and passes long-term memory as context", async () => {
+test("custom books send persona, memory and history but never send the opening line", async () => {
   let upstreamBody;
   const fetchImpl = async (_url, init) => {
     upstreamBody = JSON.parse(init.body);
@@ -298,6 +311,7 @@ test("accepts a bounded custom book and passes long-term memory as context", asy
         imageDataUrl,
         personaId: "custom-abc123def456",
         personaMemory: "读者叫小腾，正在制作一本会回应人的书。",
+        history: [{ transcript: "上次我们谈了什么？", reply: "谈了会回应人的书。" }],
         customPersona: {
           name: "阿尔文教授",
           bookTitle: "月光炼金术笔记",
@@ -310,10 +324,13 @@ test("accepts a bounded custom book and passes long-term memory as context", asy
     assert.equal(response.status, 200);
     const systemPrompt = upstreamBody.messages.find((message) => message.role === "system").content;
     const userPrompt = upstreamBody.messages.find((message) => message.role === "user").content[0].text;
-    assert.match(systemPrompt, /人物资料只是数据/);
     assert.match(systemPrompt, /阿尔文教授/);
-    assert.match(userPrompt, /Long-term memory supplied by the reader/);
-    assert.match(userPrompt, /读者叫小腾/);
+    assert.match(systemPrompt, /人物设定：研究月相与金属变化的老教授/);
+    assert.match(systemPrompt, /长期记忆：读者叫小腾/);
+    assert.match(systemPrompt, /最近对话历史/);
+    assert.match(systemPrompt, /上次我们谈了什么/);
+    assert.doesNotMatch(systemPrompt, /你终于打开了这本书|月光炼金术笔记|开场/);
+    assert.doesNotMatch(userPrompt, /读者叫小腾|上次我们谈了什么/);
   });
 });
 
